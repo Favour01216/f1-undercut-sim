@@ -1,325 +1,332 @@
 """
-OpenF1 API Service
+OpenF1 API Client
 
-This module provides integration with the OpenF1 API for real-time F1 data.
-OpenF1 provides live timing, telemetry, and session data.
+This module provides integration with the OpenF1 API for F1 data.
+Implements caching, retry logic, and data filtering for analysis.
 """
 
-import httpx
-import asyncio
-from typing import Dict, List, Any, Optional
 import os
-from datetime import datetime, timezone
+import time
+import logging
+import hashlib
+from datetime import datetime, date
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+
+import pandas as pd
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-class OpenF1Service:
+class OpenF1Client:
     """
-    Service for interacting with the OpenF1 API.
+    Client for interacting with the OpenF1 API.
     
-    OpenF1 provides real-time Formula 1 data including:
-    - Session information
-    - Live timing data
-    - Telemetry data
-    - Position data
-    - Lap times
+    Features:
+    - Synchronous API calls with requests
+    - Parquet caching for all responses
+    - HTTP retry with exponential backoff
+    - SC/VSC lap filtering
+    - Comprehensive logging
     """
     
-    def __init__(self):
-        """Initialize the OpenF1 service."""
-        self.base_url = os.getenv("OPENF1_API_URL", "https://api.openf1.org/v1")
-        self.session = None
-        self.timeout = 30.0
+    def __init__(self, base_url: Optional[str] = None, cache_dir: Optional[str] = None):
+        """
+        Initialize the OpenF1 client.
         
-    async def _get_session(self) -> httpx.AsyncClient:
-        """Get or create HTTP session."""
-        if self.session is None:
-            self.session = httpx.AsyncClient(timeout=self.timeout)
-        return self.session
+        Args:
+            base_url: OpenF1 API base URL
+            cache_dir: Directory for caching Parquet files
+        """
+        self.base_url = base_url or os.getenv("OPENF1_API_URL", "https://api.openf1.org/v1")
+        self.cache_dir = Path(cache_dir or "features")
+        self.cache_dir.mkdir(exist_ok=True)
+        
+        # Configure session with retry strategy
+        self.session = requests.Session()
+        
+        # Retry strategy with exponential backoff
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 500, 502, 503, 504],
+            backoff_factor=2,  # 2, 4, 8 seconds
+            allowed_methods=["GET"]
+        )
+        
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        
+        # Set timeout and headers
+        self.session.timeout = 30
+        self.session.headers.update({
+            "User-Agent": "F1-Undercut-Sim/1.0"
+        })
     
-    async def close(self):
+    def _get_cache_filename(self, gp: str, year: int, endpoint: str) -> Path:
+        """
+        Generate cache filename for a request.
+        
+        Args:
+            gp: Grand Prix name/identifier
+            year: Race year
+            endpoint: API endpoint being cached
+            
+        Returns:
+            Path to cache file
+        """
+        today = date.today().isoformat()
+        safe_gp = "".join(c if c.isalnum() else "_" for c in str(gp).lower())
+        filename = f"{safe_gp}_{year}_{today}_{endpoint}.parquet"
+        return self.cache_dir / filename
+    
+    def _get_from_cache(self, cache_file: Path) -> Optional[pd.DataFrame]:
+        """
+        Retrieve data from cache if available and recent.
+        
+        Args:
+            cache_file: Path to cache file
+            
+        Returns:
+            Cached DataFrame or None
+        """
+        if cache_file.exists():
+            try:
+                df = pd.read_parquet(cache_file)
+                logger.info(f"Cache hit: {cache_file.name}")
+                return df
+            except Exception as e:
+                logger.warning(f"Cache read failed for {cache_file.name}: {e}")
+        return None
+    
+    def _save_to_cache(self, df: pd.DataFrame, cache_file: Path) -> None:
+        """
+        Save DataFrame to cache.
+        
+        Args:
+            df: DataFrame to cache
+            cache_file: Path to cache file
+        """
+        try:
+            df.to_parquet(cache_file, index=False)
+            logger.info(f"Cached data to: {cache_file.name}")
+        except Exception as e:
+            logger.error(f"Cache save failed for {cache_file.name}: {e}")
+    
+    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+        """
+        Make HTTP request with logging and error handling.
+        
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            
+        Returns:
+            Response data as dictionary
+        """
+        url = f"{self.base_url}/{endpoint}"
+        
+        logger.info(f"Fetching: {url} with params: {params}")
+        
+        try:
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
+            logger.info(f"Successfully fetched {len(data) if isinstance(data, list) else 1} records from {endpoint}")
+            
+            return data
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed for {url}: {e}")
+            raise
+    
+    def _filter_sc_vsc_laps(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter out Safety Car (SC) and Virtual Safety Car (VSC) laps.
+        
+        Args:
+            df: DataFrame with lap data
+            
+        Returns:
+            Filtered DataFrame
+        """
+        if df.empty:
+            return df
+        
+        initial_count = len(df)
+        
+        # Filter conditions for SC/VSC laps
+        # These conditions may need adjustment based on actual OpenF1 data structure
+        filters = []
+        
+        # Check for track status indicators
+        if 'track_status' in df.columns:
+            filters.append(~df['track_status'].isin(['4', '6']))  # 4=SC, 6=VSC in some APIs
+        
+        # Check for lap time anomalies (SC/VSC laps are usually much slower)
+        if 'lap_duration' in df.columns:
+            # Remove laps that are significantly slower than normal
+            df_numeric = pd.to_numeric(df['lap_duration'], errors='coerce')
+            if not df_numeric.isna().all():
+                median_time = df_numeric.median()
+                if pd.notna(median_time):
+                    # Filter out laps > 150% of median (likely SC/VSC)
+                    filters.append(df_numeric <= median_time * 1.5)
+        
+        # Check for specific flags in the data
+        if 'is_deleted' in df.columns:
+            filters.append(~df['is_deleted'].fillna(False))
+        
+        # Apply all filters
+        if filters:
+            combined_filter = filters[0]
+            for f in filters[1:]:
+                combined_filter = combined_filter & f
+            df = df[combined_filter].copy()
+        
+        filtered_count = len(df)
+        if initial_count != filtered_count:
+            logger.info(f"Filtered out {initial_count - filtered_count} SC/VSC laps ({filtered_count} remaining)")
+        
+        return df
+    
+    def get_laps(self, gp: str, year: int) -> pd.DataFrame:
+        """
+        Get lap times data for a specific Grand Prix.
+        
+        Args:
+            gp: Grand Prix identifier (e.g., 'bahrain', 'saudi-arabia')
+            year: Race year
+            
+        Returns:
+            DataFrame with lap times data, filtered for SC/VSC laps
+        """
+        cache_file = self._get_cache_filename(gp, year, "laps")
+        
+        # Try cache first
+        cached_data = self._get_from_cache(cache_file)
+        if cached_data is not None:
+            return cached_data
+        
+        # Fetch from API
+        logger.info(f"Fetching lap data for {gp} {year}")
+        
+        # Get sessions for the year to find the race session
+        sessions_data = self._make_request("sessions", {"year": year})
+        
+        # Find the race session for the specific GP
+        race_session = None
+        for session in sessions_data:
+            if (session.get("session_type") == "Race" and 
+                str(year) in str(session.get("year", "")) and
+                gp.lower().replace("-", " ") in session.get("session_name", "").lower()):
+                race_session = session
+                break
+        
+        if not race_session:
+            logger.warning(f"No race session found for {gp} {year}")
+            return pd.DataFrame()
+        
+        session_key = race_session.get("session_key")
+        if not session_key:
+            logger.error(f"No session_key found for {gp} {year}")
+            return pd.DataFrame()
+        
+        # Get lap data for the session
+        laps_data = self._make_request("laps", {"session_key": session_key})
+        
+        if not laps_data:
+            logger.warning(f"No lap data found for {gp} {year}")
+            return pd.DataFrame()
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(laps_data)
+        
+        # Filter out SC/VSC laps
+        df = self._filter_sc_vsc_laps(df)
+        
+        # Cache the results
+        self._save_to_cache(df, cache_file)
+        
+        return df
+    
+    def get_pit_events(self, gp: str, year: int) -> pd.DataFrame:
+        """
+        Get pit stop events data for a specific Grand Prix.
+        
+        Args:
+            gp: Grand Prix identifier (e.g., 'bahrain', 'saudi-arabia')
+            year: Race year
+            
+        Returns:
+            DataFrame with pit stop events data
+        """
+        cache_file = self._get_cache_filename(gp, year, "pit_events")
+        
+        # Try cache first
+        cached_data = self._get_from_cache(cache_file)
+        if cached_data is not None:
+            return cached_data
+        
+        # Fetch from API
+        logger.info(f"Fetching pit events data for {gp} {year}")
+        
+        # Get sessions for the year to find the race session
+        sessions_data = self._make_request("sessions", {"year": year})
+        
+        # Find the race session for the specific GP
+        race_session = None
+        for session in sessions_data:
+            if (session.get("session_type") == "Race" and 
+                str(year) in str(session.get("year", "")) and
+                gp.lower().replace("-", " ") in session.get("session_name", "").lower()):
+                race_session = session
+                break
+        
+        if not race_session:
+            logger.warning(f"No race session found for {gp} {year}")
+            return pd.DataFrame()
+        
+        session_key = race_session.get("session_key")
+        if not session_key:
+            logger.error(f"No session_key found for {gp} {year}")
+            return pd.DataFrame()
+        
+        # Get pit stop data for the session
+        pit_data = self._make_request("pit", {"session_key": session_key})
+        
+        if not pit_data:
+            logger.warning(f"No pit stop data found for {gp} {year}")
+            return pd.DataFrame()
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(pit_data)
+        
+        # Cache the results
+        self._save_to_cache(df, cache_file)
+        
+        return df
+    
+    def close(self) -> None:
         """Close the HTTP session."""
-        if self.session:
-            await self.session.aclose()
-            self.session = None
+        if hasattr(self, 'session'):
+            self.session.close()
     
-    async def get_sessions(self, year: int = 2024) -> List[Dict[str, Any]]:
-        """
-        Get F1 sessions for a given year.
-        
-        Args:
-            year: Year to get sessions for
-            
-        Returns:
-            List of session dictionaries
-        """
-        try:
-            session = await self._get_session()
-            response = await session.get(f"{self.base_url}/sessions", params={"year": year})
-            response.raise_for_status()
-            
-            sessions = response.json()
-            
-            # Filter and format sessions
-            formatted_sessions = []
-            for session_data in sessions:
-                formatted_sessions.append({
-                    "session_key": session_data.get("session_key"),
-                    "session_name": session_data.get("session_name"),
-                    "date_start": session_data.get("date_start"),
-                    "date_end": session_data.get("date_end"),
-                    "gmt_offset": session_data.get("gmt_offset"),
-                    "session_type": session_data.get("session_type"),
-                    "location": session_data.get("location"),
-                    "country_name": session_data.get("country_name"),
-                    "circuit_short_name": session_data.get("circuit_short_name"),
-                    "year": session_data.get("year")
-                })
-            
-            return formatted_sessions
-            
-        except httpx.HTTPError as e:
-            raise Exception(f"Failed to fetch sessions: {str(e)}")
-        except Exception as e:
-            raise Exception(f"Unexpected error: {str(e)}")
+    def __enter__(self):
+        """Context manager entry."""
+        return self
     
-    async def get_session_data(self, session_key: str) -> Dict[str, Any]:
-        """
-        Get comprehensive data for a specific session.
-        
-        Args:
-            session_key: Unique session identifier
-            
-        Returns:
-            Dictionary containing session data
-        """
-        try:
-            # Get multiple data types concurrently
-            tasks = [
-                self.get_lap_times(session_key),
-                self.get_position_data(session_key),
-                self.get_stint_data(session_key),
-                self.get_weather_data(session_key)
-            ]
-            
-            lap_times, positions, stints, weather = await asyncio.gather(*tasks)
-            
-            return {
-                "session_key": session_key,
-                "lap_times": lap_times,
-                "positions": positions,
-                "stints": stints,
-                "weather": weather,
-                "tire_compounds": self._extract_tire_compounds(stints),
-                "track_temperature": self._extract_track_temperature(weather)
-            }
-            
-        except Exception as e:
-            raise Exception(f"Failed to get session data: {str(e)}")
-    
-    async def get_lap_times(self, session_key: str) -> List[Dict[str, Any]]:
-        """Get lap times for a session."""
-        try:
-            session = await self._get_session()
-            response = await session.get(
-                f"{self.base_url}/laps", 
-                params={"session_key": session_key}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-        except httpx.HTTPError as e:
-            # Return empty list if no data available
-            return []
-    
-    async def get_position_data(self, session_key: str) -> List[Dict[str, Any]]:
-        """Get position data for a session."""
-        try:
-            session = await self._get_session()
-            response = await session.get(
-                f"{self.base_url}/position", 
-                params={"session_key": session_key}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-        except httpx.HTTPError as e:
-            return []
-    
-    async def get_stint_data(self, session_key: str) -> List[Dict[str, Any]]:
-        """Get stint/tire data for a session."""
-        try:
-            session = await self._get_session()
-            response = await session.get(
-                f"{self.base_url}/stints", 
-                params={"session_key": session_key}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-        except httpx.HTTPError as e:
-            return []
-    
-    async def get_weather_data(self, session_key: str) -> List[Dict[str, Any]]:
-        """Get weather data for a session."""
-        try:
-            session = await self._get_session()
-            response = await session.get(
-                f"{self.base_url}/weather", 
-                params={"session_key": session_key}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-        except httpx.HTTPError as e:
-            return []
-    
-    async def get_telemetry_data(
-        self, 
-        session_key: str, 
-        driver_number: int,
-        lap_number: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Get telemetry data for a specific driver.
-        
-        Args:
-            session_key: Session identifier
-            driver_number: Driver number
-            lap_number: Specific lap number (optional)
-            
-        Returns:
-            List of telemetry data points
-        """
-        try:
-            session = await self._get_session()
-            params = {
-                "session_key": session_key,
-                "driver_number": driver_number
-            }
-            
-            if lap_number:
-                params["lap_number"] = lap_number
-            
-            response = await session.get(f"{self.base_url}/car_data", params=params)
-            response.raise_for_status()
-            return response.json()
-            
-        except httpx.HTTPError as e:
-            return []
-    
-    async def get_drivers(self, session_key: str) -> List[Dict[str, Any]]:
-        """Get driver information for a session."""
-        try:
-            session = await self._get_session()
-            response = await session.get(
-                f"{self.base_url}/drivers", 
-                params={"session_key": session_key}
-            )
-            response.raise_for_status()
-            return response.json()
-            
-        except httpx.HTTPError as e:
-            return []
-    
-    def _extract_tire_compounds(self, stints: List[Dict[str, Any]]) -> List[str]:
-        """Extract unique tire compounds from stint data."""
-        compounds = set()
-        for stint in stints:
-            compound = stint.get("compound")
-            if compound:
-                compounds.add(compound)
-        return list(compounds)
-    
-    def _extract_track_temperature(self, weather: List[Dict[str, Any]]) -> float:
-        """Extract average track temperature from weather data."""
-        if not weather:
-            return 30.0  # Default temperature
-        
-        temps = []
-        for weather_point in weather:
-            track_temp = weather_point.get("track_temperature")
-            if track_temp is not None:
-                temps.append(track_temp)
-        
-        if temps:
-            return sum(temps) / len(temps)
-        return 30.0
-    
-    async def get_live_timing(self, session_key: str) -> Dict[str, Any]:
-        """
-        Get live timing data for a session.
-        
-        Args:
-            session_key: Session identifier
-            
-        Returns:
-            Dictionary containing live timing information
-        """
-        try:
-            # Get latest data for all drivers
-            tasks = [
-                self.get_lap_times(session_key),
-                self.get_position_data(session_key),
-                self.get_drivers(session_key)
-            ]
-            
-            lap_times, positions, drivers = await asyncio.gather(*tasks)
-            
-            # Process and combine data
-            timing_data = self._process_live_timing(lap_times, positions, drivers)
-            
-            return {
-                "session_key": session_key,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "timing_data": timing_data
-            }
-            
-        except Exception as e:
-            raise Exception(f"Failed to get live timing: {str(e)}")
-    
-    def _process_live_timing(
-        self, 
-        lap_times: List[Dict[str, Any]], 
-        positions: List[Dict[str, Any]], 
-        drivers: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """Process raw timing data into structured format."""
-        # This is a simplified processing function
-        # In a real implementation, you'd merge and process the data more thoroughly
-        
-        driver_data = {}
-        
-        # Create driver lookup
-        for driver in drivers:
-            driver_number = driver.get("driver_number")
-            if driver_number:
-                driver_data[driver_number] = {
-                    "driver_number": driver_number,
-                    "name": f"{driver.get('first_name', '')} {driver.get('last_name', '')}".strip(),
-                    "team": driver.get("team_name", ""),
-                    "abbreviation": driver.get("name_acronym", "")
-                }
-        
-        # Add position data
-        for position in positions[-20:]:  # Get recent positions
-            driver_number = position.get("driver_number")
-            if driver_number in driver_data:
-                driver_data[driver_number].update({
-                    "position": position.get("position"),
-                    "date": position.get("date")
-                })
-        
-        # Add lap time data
-        for lap in lap_times[-50:]:  # Get recent lap times
-            driver_number = lap.get("driver_number")
-            if driver_number in driver_data:
-                if "lap_times" not in driver_data[driver_number]:
-                    driver_data[driver_number]["lap_times"] = []
-                
-                driver_data[driver_number]["lap_times"].append({
-                    "lap_number": lap.get("lap_number"),
-                    "lap_time": lap.get("lap_duration"),
-                    "is_personal_best": lap.get("is_personal_best", False)
-                })
-        
-        return list(driver_data.values())
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+
+
+# For backward compatibility and convenience
+def create_openf1_client() -> OpenF1Client:
+    """Create and return an OpenF1Client instance."""
+    return OpenF1Client()
