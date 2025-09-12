@@ -3,28 +3,34 @@ F1 Undercut Simulation FastAPI Application
 
 This is the main FastAPI application for the F1 undercut simulation tool.
 It provides APIs for tire degradation analysis, pit stop optimization,
-and outlap performance prediction.
+and undercut simulation with probability calculations.
 """
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 import uvicorn
 import os
-from typing import Dict, Any
+import logging
+import numpy as np
+from typing import Dict, Any, Optional
 
-# Import models and services
-from models.deg import TireDegradationModel
-from models.pit import PitStopModel
+# Import our new modeling classes and API clients
+from models.deg import DegModel
+from models.pit import PitModel  
 from models.outlap import OutlapModel
-from services.openf1 import OpenF1Service
-from services.jolpica import JolpicaService
+from services.openf1 import OpenF1Client
+from services.jolpica import JolpicaClient
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
     title="F1 Undercut Simulator",
-    description="API for F1 undercut simulation and analysis",
-    version="0.1.0",
+    description="API for F1 undercut simulation and probability analysis",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -40,14 +46,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services
-openf1_service = OpenF1Service()
-jolpica_service = JolpicaService()
+# Initialize API clients
+openf1_client = OpenF1Client()
+jolpica_client = JolpicaClient()
 
-# Initialize models
-tire_deg_model = TireDegradationModel()
-pit_stop_model = PitStopModel()
-outlap_model = OutlapModel()
+# Global model instances (will be fitted on first use)
+global_models = {
+    'deg': None,
+    'pit': None, 
+    'outlap': None
+}
+
+
+class SimulateRequest(BaseModel):
+    """Request model for undercut simulation."""
+    gp: str = Field(..., description="Grand Prix identifier (e.g., 'bahrain', 'monaco')")
+    year: int = Field(..., description="Race year", ge=2020, le=2024)
+    driver_a: str = Field(..., description="Driver attempting undercut (driver number or name)")
+    driver_b: str = Field(..., description="Driver being undercut (driver number or name)")  
+    compound_a: str = Field(..., description="Tire compound for driver A", pattern="^(SOFT|MEDIUM|HARD)$")
+    lap_now: int = Field(..., description="Current lap number", ge=1, le=100)
+    samples: Optional[int] = Field(1000, description="Number of Monte Carlo samples", ge=100, le=10000)
+
+
+class SimulateResponse(BaseModel):
+    """Response model for undercut simulation."""
+    p_undercut: float = Field(..., description="Probability of successful undercut (0-1)")
+    pitLoss_s: float = Field(..., description="Expected pit stop time loss in seconds")
+    outLapDelta_s: float = Field(..., description="Expected outlap penalty in seconds") 
+    assumptions: Dict[str, Any] = Field(..., description="Model assumptions and parameters used")
 
 
 @app.get("/")
@@ -55,9 +82,10 @@ async def root() -> Dict[str, str]:
     """Root endpoint providing API information."""
     return {
         "message": "F1 Undercut Simulator API",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "simulate": "/simulate"
     }
 
 
@@ -67,61 +95,205 @@ async def health_check() -> Dict[str, str]:
     return {"status": "healthy", "service": "f1-undercut-sim-backend"}
 
 
-@app.get("/api/v1/sessions")
-async def get_sessions(year: int = 2024) -> Dict[str, Any]:
-    """Get available F1 sessions for a given year."""
+def get_or_fit_models(gp: str, year: int) -> Dict[str, Any]:
+    """Get fitted models, fitting them if needed."""
+    global global_models
+    
     try:
-        sessions = await openf1_service.get_sessions(year)
-        return {"sessions": sessions, "year": year}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/v1/tire-degradation/{session_key}")
-async def analyze_tire_degradation(session_key: str) -> Dict[str, Any]:
-    """Analyze tire degradation for a specific session."""
-    try:
-        # Get session data from OpenF1
-        session_data = await openf1_service.get_session_data(session_key)
+        # Get data from APIs
+        logger.info(f"Fetching data for {gp} {year}")
         
-        # Analyze tire degradation
-        degradation_analysis = tire_deg_model.analyze(session_data)
+        with openf1_client as client:
+            laps_df = client.get_laps(gp, year)
+            pit_events_df = client.get_pit_events(gp, year)
         
-        return {
-            "session_key": session_key,
-            "analysis": degradation_analysis
-        }
+        # Fit models if not already fitted or if data is new
+        models = {}
+        
+        # Fit DegModel
+        if not laps_df.empty:
+            deg_model = DegModel()
+            deg_model.fit(laps_df)
+            models['deg'] = deg_model
+            logger.info("DegModel fitted successfully")
+        else:
+            # Use default degradation if no data
+            models['deg'] = None
+            logger.warning("No lap data available for DegModel")
+        
+        # Fit PitModel  
+        if not pit_events_df.empty:
+            pit_model = PitModel()
+            pit_model.fit(pit_events_df)
+            models['pit'] = pit_model
+            logger.info("PitModel fitted successfully")
+        else:
+            # Use default pit loss if no data
+            models['pit'] = None
+            logger.warning("No pit data available for PitModel")
+        
+        # Fit OutlapModel
+        if not laps_df.empty:
+            outlap_model = OutlapModel()
+            outlap_model.fit(laps_df)
+            models['outlap'] = outlap_model
+            logger.info("OutlapModel fitted successfully")
+        else:
+            models['outlap'] = None
+            logger.warning("No lap data available for OutlapModel")
+        
+        return models
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error fitting models: {e}")
+        return {'deg': None, 'pit': None, 'outlap': None}
 
 
-@app.post("/api/v1/pit-strategy")
-async def optimize_pit_strategy(strategy_request: Dict[str, Any]) -> Dict[str, Any]:
-    """Optimize pit stop strategy for given conditions."""
+def calculate_driver_gap(gp: str, year: int, driver_a: str, driver_b: str, lap_now: int) -> float:
+    """Calculate the gap between two drivers at a specific lap."""
+    # This is a simplified implementation - in reality you'd get this from timing data
+    # For now, we'll simulate a realistic gap
+    np.random.seed(hash(f"{gp}{year}{driver_a}{driver_b}{lap_now}") % 2**32)
+    
+    # Typical F1 gaps range from 0.5s to 30s between adjacent cars
+    base_gap = np.random.uniform(2.0, 8.0)  # seconds
+    
+    # Add some variability based on lap position
+    lap_factor = 1.0 + (lap_now / 100.0) * 0.2  # Gaps tend to increase during race
+    
+    return base_gap * lap_factor
+
+
+@app.post("/simulate", response_model=SimulateResponse)
+async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
+    """
+    Simulate undercut probability between two drivers.
+    
+    This endpoint calculates the probability that driver_a can successfully 
+    undercut driver_b by pitting now while driver_b stays out one more lap.
+    """
     try:
-        optimization = pit_stop_model.optimize(strategy_request)
-        return {"optimization": optimization}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/v1/outlap-prediction/{session_key}")
-async def predict_outlap_performance(
-    session_key: str, 
-    tire_compound: str,
-    fuel_load: float
-) -> Dict[str, Any]:
-    """Predict outlap performance for given conditions."""
-    try:
-        prediction = outlap_model.predict(session_key, tire_compound, fuel_load)
-        return {
-            "session_key": session_key,
-            "tire_compound": tire_compound,
-            "fuel_load": fuel_load,
-            "prediction": prediction
+        logger.info(f"Simulating undercut: {request.driver_a} vs {request.driver_b} at {request.gp} {request.year}")
+        
+        # Get fitted models for this GP/year
+        models = get_or_fit_models(request.gp, request.year)
+        
+        # Calculate current gap between drivers
+        gap_seconds = calculate_driver_gap(
+            request.gp, request.year, request.driver_a, request.driver_b, request.lap_now
+        )
+        
+        # Default assumptions
+        assumptions = {
+            "current_gap_s": gap_seconds,
+            "tire_age_driver_b": request.lap_now - 1,  # Assume current stint started at lap 1
+            "models_fitted": {
+                "deg_model": models['deg'] is not None,
+                "pit_model": models['pit'] is not None, 
+                "outlap_model": models['outlap'] is not None
+            },
+            "monte_carlo_samples": request.samples
         }
+        
+        # Monte Carlo simulation
+        successes = 0
+        pit_losses = []
+        outlap_deltas = []
+        degradation_penalties = []
+        
+        for _ in range(request.samples):
+            # Sample pit stop time loss
+            if models['pit'] is not None and models['pit'].fitted:
+                pit_loss = models['pit'].sample(1)
+            else:
+                # Default F1 pit stop loss: ~25 seconds ± 3s
+                pit_loss = np.random.normal(25.0, 3.0)
+            
+            pit_losses.append(pit_loss)
+            
+            # Sample outlap penalty for compound A
+            if models['outlap'] is not None and models['outlap'].fitted:
+                try:
+                    outlap_delta = models['outlap'].sample(request.compound_a, 1)
+                except ValueError:
+                    # Compound not available, use typical penalty
+                    compound_penalties = {'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}
+                    outlap_delta = np.random.normal(
+                        compound_penalties.get(request.compound_a, 1.2), 0.3
+                    )
+            else:
+                # Default outlap penalties by compound
+                compound_penalties = {'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}
+                outlap_delta = np.random.normal(
+                    compound_penalties.get(request.compound_a, 1.2), 0.3
+                )
+            
+            outlap_deltas.append(max(0, outlap_delta))
+            
+            # Predict driver B's degradation for staying out 1 more lap
+            current_tire_age = assumptions["tire_age_driver_b"]
+            if models['deg'] is not None and models['deg'].fitted:
+                degradation_penalty = models['deg'].predict(current_tire_age + 1) - models['deg'].predict(current_tire_age)
+            else:
+                # Default degradation: ~0.05s per lap + quadratic component
+                degradation_penalty = 0.05 + 0.002 * current_tire_age
+            
+            degradation_penalties.append(max(0, degradation_penalty))
+            
+            # Calculate undercut success
+            # Success if: gap + pit_loss + outlap_penalty < time_gained_from_driver_b_staying_out
+            driver_a_time_loss = pit_loss + outlap_delta
+            driver_b_time_loss = degradation_penalty
+            
+            # Undercut succeeds if driver A's total time loss is less than gap + driver B's degradation
+            if driver_a_time_loss < (gap_seconds + driver_b_time_loss):
+                successes += 1
+        
+        # Calculate results
+        p_undercut = successes / request.samples
+        avg_pit_loss = np.mean(pit_losses)
+        avg_outlap_delta = np.mean(outlap_deltas)
+        
+        # Add more details to assumptions
+        assumptions.update({
+            "avg_degradation_penalty_s": float(np.mean(degradation_penalties)),
+            "pit_loss_range": [float(np.min(pit_losses)), float(np.max(pit_losses))],
+            "outlap_delta_range": [float(np.min(outlap_deltas)), float(np.max(outlap_deltas))],
+            "compound_used": request.compound_a,
+            "success_margin_s": float(np.mean([
+                (gap_seconds + deg - (pit + outlap)) 
+                for pit, outlap, deg in zip(pit_losses, outlap_deltas, degradation_penalties)
+            ]))
+        })
+        
+        logger.info(f"Simulation complete: P(undercut) = {p_undercut:.1%}")
+        
+        return SimulateResponse(
+            p_undercut=p_undercut,
+            pitLoss_s=float(avg_pit_loss),
+            outLapDelta_s=float(avg_outlap_delta),
+            assumptions=assumptions
+        )
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Simulation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
+
+
+@app.get("/api/v1/models/status")
+async def get_models_status() -> Dict[str, Any]:
+    """Get status of fitted models."""
+    return {
+        "models": {
+            "deg_model": global_models['deg'] is not None and global_models['deg'].fitted if global_models['deg'] else False,
+            "pit_model": global_models['pit'] is not None and global_models['pit'].fitted if global_models['pit'] else False,  
+            "outlap_model": global_models['outlap'] is not None and global_models['outlap'].fitted if global_models['outlap'] else False
+        },
+        "api_clients": {
+            "openf1_client": "available",
+            "jolpica_client": "available"
+        }
+    }
 
 
 if __name__ == "__main__":
