@@ -1,276 +1,283 @@
 """
-Pit Stop Strategy Model
+Pit Stop Time Model
 
-This module contains the pit stop strategy optimization model.
-It analyzes optimal pit windows and strategy decisions.
+Simple model for pit stop time loss distribution based on historical data.
+Fits a normal distribution and provides sampling for Monte Carlo simulations.
 """
 
-from typing import Dict, List, Any, Optional
 import numpy as np
-from pydantic import BaseModel
-from enum import Enum
+import pandas as pd
+from typing import Optional, Dict, Any
+import logging
+from scipy import stats
+
+logger = logging.getLogger(__name__)
 
 
-class StrategyType(str, Enum):
-    """Pit strategy types."""
-    ONE_STOP = "one_stop"
-    TWO_STOP = "two_stop"
-    THREE_STOP = "three_stop"
-    UNDERCUT = "undercut"
-    OVERCUT = "overcut"
-
-
-class PitWindow(BaseModel):
-    """Pit window definition."""
-    lap_start: int
-    lap_end: int
-    probability: float
-    tire_compound: str
-    expected_gain: float
-
-
-class StrategyRecommendation(BaseModel):
-    """Strategy recommendation result."""
-    strategy_type: StrategyType
-    pit_windows: List[PitWindow]
-    expected_position_gain: float
-    risk_factor: float
-    confidence: float
-
-
-class PitStopModel:
+class PitModel:
     """
-    Pit stop strategy optimization model.
+    Pit stop time loss model using normal distribution.
     
-    Analyzes optimal pit stop strategies based on:
-    - Track position
-    - Tire degradation
-    - Fuel load
-    - Traffic conditions
-    - Weather conditions
+    Analyzes historical pit stop data to model the distribution of time lost
+    during pit stops, accounting for both the pit stop itself and position loss.
     """
     
     def __init__(self):
         """Initialize the pit stop model."""
-        self.pit_loss_time = 23.0  # Average pit stop time loss (seconds)
-        self.undercut_window = 3  # Laps for effective undercut
-        self.tire_compounds = ["SOFT", "MEDIUM", "HARD"]
+        self.mean_loss: Optional[float] = None
+        self.std_loss: Optional[float] = None
+        self.fitted: bool = False
+        self.sample_count: int = 0
+        self.distribution: Optional[stats.norm] = None
         
-    def optimize(self, strategy_request: Dict[str, Any]) -> Dict[str, Any]:
+    def fit(self, df_pit_events: pd.DataFrame) -> 'PitModel':
         """
-        Optimize pit stop strategy for given conditions.
+        Fit the pit stop time loss model to historical data.
+        
+        Expected DataFrame columns:
+        - 'pit_duration' or 'duration': Time spent in pit lane (seconds)
+        - 'time_loss' or 'pit_loss_time': Total time lost including track position
+        
+        Alternative: if only pit duration is available, estimates total loss
         
         Args:
-            strategy_request: Request containing race conditions and constraints
+            df_pit_events: DataFrame with pit stop event data
             
         Returns:
-            Dictionary containing strategy recommendations
+            Self for method chaining
+            
+        Raises:
+            ValueError: If required columns are missing or data is insufficient
         """
-        try:
-            # Extract request parameters
-            current_position = strategy_request.get("current_position", 10)
-            current_lap = strategy_request.get("current_lap", 1)
-            total_laps = strategy_request.get("total_laps", 50)
-            current_tire = strategy_request.get("current_tire", "MEDIUM")
-            tire_age = strategy_request.get("tire_age", 0)
-            fuel_load = strategy_request.get("fuel_load", 100.0)
-            weather = strategy_request.get("weather", "dry")
-            traffic_density = strategy_request.get("traffic_density", 0.5)
-            
-            # Analyze different strategy options
-            strategies = []
-            
-            # One-stop strategy
-            one_stop = self._analyze_one_stop_strategy(
-                current_lap, total_laps, current_tire, tire_age
-            )
-            strategies.append(one_stop)
-            
-            # Two-stop strategy
-            two_stop = self._analyze_two_stop_strategy(
-                current_lap, total_laps, current_tire, tire_age
-            )
-            strategies.append(two_stop)
-            
-            # Undercut strategy
-            undercut = self._analyze_undercut_strategy(
-                current_position, current_lap, total_laps, traffic_density
-            )
-            strategies.append(undercut)
-            
-            # Rank strategies by expected outcome
-            ranked_strategies = sorted(
-                strategies, 
-                key=lambda x: x["expected_position_gain"], 
-                reverse=True
-            )
-            
-            return {
-                "current_conditions": {
-                    "position": current_position,
-                    "lap": current_lap,
-                    "tire": current_tire,
-                    "tire_age": tire_age,
-                    "weather": weather
-                },
-                "recommended_strategy": ranked_strategies[0],
-                "alternative_strategies": ranked_strategies[1:],
-                "analysis_timestamp": "2024-01-01T00:00:00Z"  # Placeholder
-            }
-            
-        except Exception as e:
-            return {"error": f"Strategy optimization failed: {str(e)}"}
-    
-    def _analyze_one_stop_strategy(
-        self, 
-        current_lap: int, 
-        total_laps: int,
-        current_tire: str,
-        tire_age: int
-    ) -> Dict[str, Any]:
-        """Analyze one-stop strategy option."""
-        # Calculate optimal pit window for one-stop
-        remaining_laps = total_laps - current_lap
-        optimal_pit_lap = current_lap + int(remaining_laps * 0.6)
+        if df_pit_events.empty:
+            raise ValueError("Cannot fit model with empty DataFrame")
         
-        # Determine best tire compound
-        if remaining_laps > 30:
-            recommended_tire = "HARD"
-        elif remaining_laps > 15:
-            recommended_tire = "MEDIUM"
+        # Determine column names (flexible naming)
+        pit_duration_col = None
+        time_loss_col = None
+        
+        # Check for pit duration column
+        for col in ['pit_duration', 'duration', 'pit_time']:
+            if col in df_pit_events.columns:
+                pit_duration_col = col
+                break
+        
+        # Check for total time loss column
+        for col in ['time_loss', 'pit_loss_time', 'total_loss']:
+            if col in df_pit_events.columns:
+                time_loss_col = col
+                break
+        
+        if not pit_duration_col and not time_loss_col:
+            raise ValueError("No pit time column found. Expected 'pit_duration', 'duration', 'time_loss', or 'pit_loss_time'")
+        
+        # Prepare data
+        if time_loss_col and time_loss_col in df_pit_events.columns:
+            # Use total time loss if available
+            time_losses = df_pit_events[time_loss_col].copy()
+            data_source = "total_time_loss"
+        elif pit_duration_col and pit_duration_col in df_pit_events.columns:
+            # Estimate total loss from pit duration
+            pit_durations = df_pit_events[pit_duration_col].copy()
+            
+            # Add typical overhead for pit stops (entry/exit, tire change delay)
+            # Typical F1 pit stop: ~20-25s stationary + ~5-8s track time loss
+            time_losses = pit_durations + np.random.normal(7, 2, len(pit_durations))
+            data_source = "estimated_from_pit_duration"
         else:
-            recommended_tire = "SOFT"
+            raise ValueError("Required columns not found in DataFrame")
         
-        pit_window = {
-            "lap_start": max(current_lap + 5, optimal_pit_lap - 3),
-            "lap_end": min(total_laps - 5, optimal_pit_lap + 3),
-            "probability": 0.8,
-            "tire_compound": recommended_tire,
-            "expected_gain": 0.5
-        }
+        # Clean data
+        time_losses = pd.to_numeric(time_losses, errors='coerce')
+        time_losses = time_losses.dropna()
+        
+        if len(time_losses) < 3:
+            raise ValueError(f"Insufficient data for fitting. Need at least 3 valid points, got {len(time_losses)}")
+        
+        # Remove extreme outliers (beyond 3 standard deviations)
+        mean_loss = time_losses.mean()
+        std_loss = time_losses.std()
+        
+        outlier_mask = np.abs(time_losses - mean_loss) <= 3 * std_loss
+        time_losses_clean = time_losses[outlier_mask]
+        
+        if len(time_losses_clean) < 3:
+            logger.warning("Too many outliers removed, using original data")
+            time_losses_clean = time_losses
+        
+        # Ensure reasonable bounds for F1 pit stops (10-60 seconds total loss)
+        time_losses_clean = time_losses_clean[(time_losses_clean >= 10) & (time_losses_clean <= 60)]
+        
+        if len(time_losses_clean) < 3:
+            raise ValueError("Insufficient valid pit stop data after filtering")
+        
+        # Fit normal distribution
+        self.mean_loss = float(time_losses_clean.mean())
+        self.std_loss = float(time_losses_clean.std())
+        
+        # Handle edge case of zero standard deviation
+        if self.std_loss < 0.1:
+            self.std_loss = 1.0  # Minimum variability
+        
+        self.sample_count = len(time_losses_clean)
+        self.distribution = stats.norm(loc=self.mean_loss, scale=self.std_loss)
+        self.fitted = True
+        
+        logger.info(f"Pit model fitted: μ={self.mean_loss:.2f}s, σ={self.std_loss:.2f}s ({self.sample_count} samples)")
+        logger.info(f"Data source: {data_source}")
+        
+        return self
+    
+    def sample(self, n: int = 1) -> np.ndarray:
+        """
+        Generate random pit stop time loss samples.
+        
+        Args:
+            n: Number of samples to generate
+            
+        Returns:
+            Array of pit stop time losses in seconds
+            
+        Raises:
+            RuntimeError: If model hasn't been fitted
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before sampling")
+        
+        if n <= 0:
+            raise ValueError("Number of samples must be positive")
+        
+        # Sample from normal distribution
+        samples = self.distribution.rvs(size=n)
+        
+        # Ensure reasonable bounds for F1 pit stops
+        samples = np.clip(samples, 10.0, 60.0)
+        
+        return samples if n > 1 else samples[0]
+    
+    def probability_faster_than(self, threshold: float) -> float:
+        """
+        Calculate probability that a pit stop will be faster than threshold.
+        
+        Args:
+            threshold: Time threshold in seconds
+            
+        Returns:
+            Probability (0-1) that pit stop will be under threshold
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before calculating probabilities")
+        
+        return self.distribution.cdf(threshold)
+    
+    def get_percentiles(self, percentiles: list = [5, 25, 50, 75, 95]) -> Dict[int, float]:
+        """
+        Get pit stop time loss at various percentiles.
+        
+        Args:
+            percentiles: List of percentiles to calculate
+            
+        Returns:
+            Dictionary mapping percentiles to time values
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before calculating percentiles")
+        
+        result = {}
+        for p in percentiles:
+            if not 0 <= p <= 100:
+                continue
+            result[p] = float(self.distribution.ppf(p / 100))
+        
+        return result
+    
+    def simulate_pit_window(self, n_simulations: int = 1000) -> Dict[str, Any]:
+        """
+        Simulate a pit stop window with multiple scenarios.
+        
+        Args:
+            n_simulations: Number of Monte Carlo simulations
+            
+        Returns:
+            Dictionary with simulation results and statistics
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before simulation")
+        
+        samples = self.sample(n_simulations)
         
         return {
-            "strategy_type": "one_stop",
-            "pit_windows": [pit_window],
-            "expected_position_gain": 1.2,
-            "risk_factor": 0.3,
-            "confidence": 0.8,
-            "description": f"Single pit stop on lap {optimal_pit_lap} to {recommended_tire} tires"
-        }
-    
-    def _analyze_two_stop_strategy(
-        self, 
-        current_lap: int, 
-        total_laps: int,
-        current_tire: str,
-        tire_age: int
-    ) -> Dict[str, Any]:
-        """Analyze two-stop strategy option."""
-        remaining_laps = total_laps - current_lap
-        
-        # First pit stop
-        first_pit = current_lap + int(remaining_laps * 0.3)
-        second_pit = current_lap + int(remaining_laps * 0.7)
-        
-        pit_windows = [
-            {
-                "lap_start": first_pit - 2,
-                "lap_end": first_pit + 2,
-                "probability": 0.9,
-                "tire_compound": "MEDIUM",
-                "expected_gain": 0.8
+            "simulations": n_simulations,
+            "mean_loss": float(np.mean(samples)),
+            "std_loss": float(np.std(samples)),
+            "min_loss": float(np.min(samples)),
+            "max_loss": float(np.max(samples)),
+            "percentiles": {
+                "p5": float(np.percentile(samples, 5)),
+                "p25": float(np.percentile(samples, 25)), 
+                "p50": float(np.percentile(samples, 50)),
+                "p75": float(np.percentile(samples, 75)),
+                "p95": float(np.percentile(samples, 95))
             },
-            {
-                "lap_start": second_pit - 2,
-                "lap_end": second_pit + 2,
-                "probability": 0.9,
-                "tire_compound": "SOFT",
-                "expected_gain": 1.2
-            }
-        ]
-        
-        return {
-            "strategy_type": "two_stop",
-            "pit_windows": pit_windows,
-            "expected_position_gain": 2.0,
-            "risk_factor": 0.5,
-            "confidence": 0.7,
-            "description": f"Two stops: lap {first_pit} (MEDIUM), lap {second_pit} (SOFT)"
+            "probability_under_25s": float(np.mean(samples < 25)),
+            "probability_over_30s": float(np.mean(samples > 30)),
+            "samples": samples.tolist()
         }
     
-    def _analyze_undercut_strategy(
-        self, 
-        current_position: int,
-        current_lap: int, 
-        total_laps: int,
-        traffic_density: float
-    ) -> Dict[str, Any]:
-        """Analyze undercut strategy option."""
-        # Undercut is most effective when there's a car directly ahead
-        if current_position <= 3:
-            # Limited undercut potential from top positions
-            undercut_gain = 0.3
-            confidence = 0.4
-        else:
-            # Higher potential from mid-field
-            undercut_gain = 1.5 - (traffic_density * 0.5)
-            confidence = 0.8 - (traffic_density * 0.2)
-        
-        # Optimal undercut timing: earlier than expected pit window
-        standard_pit_lap = current_lap + int((total_laps - current_lap) * 0.5)
-        undercut_lap = max(current_lap + 3, standard_pit_lap - self.undercut_window)
-        
-        pit_window = {
-            "lap_start": undercut_lap - 1,
-            "lap_end": undercut_lap + 1,
-            "probability": confidence,
-            "tire_compound": "MEDIUM",
-            "expected_gain": undercut_gain
-        }
-        
-        return {
-            "strategy_type": "undercut",
-            "pit_windows": [pit_window],
-            "expected_position_gain": undercut_gain,
-            "risk_factor": 0.6,
-            "confidence": confidence,
-            "description": f"Undercut attempt on lap {undercut_lap} with fresh MEDIUM tires"
-        }
-    
-    def calculate_undercut_advantage(
-        self, 
-        target_position: int,
-        current_lap: int,
-        tire_delta: int
-    ) -> Dict[str, float]:
+    def get_model_info(self) -> Dict[str, Any]:
         """
-        Calculate the potential advantage of an undercut move.
+        Get information about the fitted model.
+        
+        Returns:
+            Dictionary with model statistics and parameters
+        """
+        if not self.fitted:
+            return {"fitted": False, "error": "Model not fitted"}
+        
+        return {
+            "fitted": True,
+            "distribution": "normal",
+            "parameters": {
+                "mean_loss": float(self.mean_loss),
+                "std_loss": float(self.std_loss)
+            },
+            "sample_count": self.sample_count,
+            "typical_range": {
+                "fast_pit": float(self.mean_loss - self.std_loss),
+                "average_pit": float(self.mean_loss),
+                "slow_pit": float(self.mean_loss + self.std_loss)
+            },
+            "percentiles": self.get_percentiles()
+        }
+    
+    def compare_scenarios(self, scenarios: Dict[str, float]) -> Dict[str, Any]:
+        """
+        Compare different pit stop timing scenarios.
         
         Args:
-            target_position: Position of car to undercut
-            current_lap: Current lap number
-            tire_delta: Age difference between tires
+            scenarios: Dict mapping scenario names to target pit times
             
         Returns:
-            Dictionary containing undercut analysis
+            Dictionary with scenario analysis
         """
-        # Base time advantage from fresh tires
-        base_advantage = tire_delta * 0.05  # 0.05s per lap of tire age
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before scenario comparison")
         
-        # Pit stop time loss
-        pit_loss = self.pit_loss_time
+        results = {}
         
-        # Traffic factor (harder to undercut in traffic)
-        traffic_factor = max(0.5, 1.0 - (target_position * 0.05))
-        
-        # Calculate net advantage
-        net_advantage = (base_advantage * self.undercut_window * traffic_factor) - pit_loss
+        for scenario_name, target_time in scenarios.items():
+            probability = self.probability_faster_than(target_time)
+            results[scenario_name] = {
+                "target_time": float(target_time),
+                "probability_faster": float(probability),
+                "probability_slower": float(1 - probability),
+                "expected_advantage": float(self.mean_loss - target_time) if target_time < self.mean_loss else 0,
+                "risk_level": "low" if probability > 0.7 else "medium" if probability > 0.3 else "high"
+            }
         
         return {
-            "base_advantage_per_lap": round(base_advantage, 3),
-            "total_advantage": round(base_advantage * self.undercut_window, 2),
-            "pit_loss": pit_loss,
-            "traffic_factor": round(traffic_factor, 2),
-            "net_advantage": round(net_advantage, 2),
-            "success_probability": min(0.9, max(0.1, net_advantage / 10.0))
+            "scenarios": results,
+            "baseline_mean": float(self.mean_loss),
+            "recommendation": min(results.keys(), 
+                                key=lambda k: abs(results[k]["probability_faster"] - 0.5))
         }
