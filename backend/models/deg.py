@@ -1,204 +1,238 @@
 """
 Tire Degradation Model
 
-This module contains the tire degradation analysis model for F1 tires.
-It analyzes tire performance degradation over time and distance.
+Simple tire degradation model that fits lap time vs tire age data 
+and predicts performance degradation over a stint.
 """
 
-from typing import Dict, List, Any, Optional
-import pandas as pd
 import numpy as np
-from scipy import interpolate
-from pydantic import BaseModel
+import pandas as pd
+from typing import Optional, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class TireCompound(BaseModel):
-    """Tire compound characteristics."""
-    name: str
-    hardness: int  # 1-5 scale (1=soft, 5=hard)
-    optimal_temp_range: tuple[float, float]  # Celsius
-    degradation_rate: float  # seconds per lap
-
-
-class TireDegradationAnalysis(BaseModel):
-    """Results of tire degradation analysis."""
-    compound: str
-    stint_length: int
-    degradation_per_lap: float
-    total_degradation: float
-    optimal_window: tuple[int, int]  # lap range
-    predicted_performance: List[float]
-
-
-class TireDegradationModel:
+class DegModel:
     """
-    Tire degradation analysis model.
+    Tire degradation model for predicting lap time increases due to tire wear.
     
-    Analyzes tire performance degradation based on:
-    - Tire compound characteristics
-    - Track temperature
-    - Lap times
-    - Stint length
+    Fits a quadratic relationship between lap time and tire age:
+    lap_delta = a * age^2 + b * age + c
+    
+    Where:
+    - lap_delta is the time penalty compared to optimal performance
+    - age is the tire age in laps
+    - a, b, c are fitted coefficients
     """
     
     def __init__(self):
-        """Initialize the tire degradation model."""
-        self.compounds = {
-            "SOFT": TireCompound(
-                name="SOFT",
-                hardness=1,
-                optimal_temp_range=(90.0, 110.0),
-                degradation_rate=0.15
-            ),
-            "MEDIUM": TireCompound(
-                name="MEDIUM", 
-                hardness=3,
-                optimal_temp_range=(85.0, 105.0),
-                degradation_rate=0.08
-            ),
-            "HARD": TireCompound(
-                name="HARD",
-                hardness=5,
-                optimal_temp_range=(80.0, 100.0),
-                degradation_rate=0.05
-            )
-        }
-    
-    def analyze(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Initialize the degradation model."""
+        self.coefficients: Optional[np.ndarray] = None
+        self.baseline_time: Optional[float] = None
+        self.fitted: bool = False
+        self.r_squared: Optional[float] = None
+        
+    def fit(self, df_laps: pd.DataFrame) -> 'DegModel':
         """
-        Analyze tire degradation for a session.
+        Fit the degradation model to lap time data.
+        
+        Expected DataFrame columns:
+        - 'lap_time' or 'lap_duration': Lap time in seconds
+        - 'tire_age' or 'stint_lap': Age of tire in laps (starting from 1)
         
         Args:
-            session_data: Session data containing lap times, compounds, etc.
+            df_laps: DataFrame with lap time and tire age data
             
         Returns:
-            Dictionary containing degradation analysis results
+            Self for method chaining
+            
+        Raises:
+            ValueError: If required columns are missing or data is insufficient
         """
-        if not session_data:
-            return {"error": "No session data provided"}
+        if df_laps.empty:
+            raise ValueError("Cannot fit model with empty DataFrame")
         
+        # Determine column names (flexible naming)
+        lap_time_col = None
+        tire_age_col = None
+        
+        # Check for lap time column
+        for col in ['lap_time', 'lap_duration', 'laptime']:
+            if col in df_laps.columns:
+                lap_time_col = col
+                break
+        
+        # Check for tire age column  
+        for col in ['tire_age', 'stint_lap', 'tyre_age']:
+            if col in df_laps.columns:
+                tire_age_col = col
+                break
+        
+        if not lap_time_col:
+            raise ValueError("No lap time column found. Expected 'lap_time', 'lap_duration', or 'laptime'")
+        
+        if not tire_age_col:
+            raise ValueError("No tire age column found. Expected 'tire_age', 'stint_lap', or 'tyre_age'")
+        
+        # Clean and prepare data
+        df_clean = df_laps[[lap_time_col, tire_age_col]].copy()
+        df_clean = df_clean.dropna()
+        
+        # Convert to numeric and filter outliers
+        df_clean[lap_time_col] = pd.to_numeric(df_clean[lap_time_col], errors='coerce')
+        df_clean[tire_age_col] = pd.to_numeric(df_clean[tire_age_col], errors='coerce')
+        df_clean = df_clean.dropna()
+        
+        if len(df_clean) < 5:
+            raise ValueError(f"Insufficient data for fitting. Need at least 5 valid points, got {len(df_clean)}")
+        
+        # Remove obvious outliers (beyond 3 standard deviations)
+        lap_times = df_clean[lap_time_col]
+        mean_time = lap_times.mean()
+        std_time = lap_times.std()
+        
+        outlier_mask = np.abs(lap_times - mean_time) <= 3 * std_time
+        df_clean = df_clean[outlier_mask]
+        
+        if len(df_clean) < 5:
+            raise ValueError("Insufficient data after outlier removal")
+        
+        # Extract features and target
+        tire_ages = df_clean[tire_age_col].values
+        lap_times = df_clean[lap_time_col].values
+        
+        # Use baseline as the minimum lap time (fresh tire performance)
+        self.baseline_time = np.percentile(lap_times, 5)  # Use 5th percentile as baseline
+        
+        # Calculate lap delta (degradation) relative to baseline
+        lap_deltas = lap_times - self.baseline_time
+        
+        # Fit quadratic model: delta = a*age^2 + b*age + c
+        # Use polynomial features: [1, age, age^2]
+        X = np.column_stack([
+            np.ones(len(tire_ages)),           # constant term
+            tire_ages,                         # linear term  
+            tire_ages ** 2                     # quadratic term
+        ])
+        
+        # Use least squares to fit coefficients
         try:
-            # Extract relevant data (placeholder implementation)
-            lap_times = session_data.get("lap_times", [])
-            tire_compounds = session_data.get("tire_compounds", [])
-            track_temp = session_data.get("track_temperature", 30.0)
-            
-            analyses = []
-            
-            for compound in set(tire_compounds):
-                if compound in self.compounds:
-                    analysis = self._analyze_compound_degradation(
-                        compound=compound,
-                        lap_times=lap_times,
-                        track_temp=track_temp
-                    )
-                    analyses.append(analysis)
-            
-            return {
-                "track_temperature": track_temp,
-                "analyses": analyses,
-                "recommendations": self._generate_recommendations(analyses)
-            }
-            
-        except Exception as e:
-            return {"error": f"Analysis failed: {str(e)}"}
+            self.coefficients = np.linalg.lstsq(X, lap_deltas, rcond=None)[0]
+        except np.linalg.LinAlgError:
+            raise ValueError("Failed to fit model due to singular matrix")
+        
+        # Calculate R-squared for goodness of fit
+        y_pred = X @ self.coefficients
+        ss_res = np.sum((lap_deltas - y_pred) ** 2)
+        ss_tot = np.sum((lap_deltas - np.mean(lap_deltas)) ** 2)
+        
+        if ss_tot > 0:
+            self.r_squared = 1 - (ss_res / ss_tot)
+        else:
+            self.r_squared = 0.0
+        
+        self.fitted = True
+        
+        logger.info(f"Degradation model fitted with R² = {self.r_squared:.3f}")
+        logger.info(f"Coefficients: c={self.coefficients[0]:.4f}, b={self.coefficients[1]:.4f}, a={self.coefficients[2]:.4f}")
+        
+        return self
     
-    def _analyze_compound_degradation(
-        self, 
-        compound: str, 
-        lap_times: List[float],
-        track_temp: float
-    ) -> Dict[str, Any]:
-        """Analyze degradation for a specific tire compound."""
-        if not lap_times:
-            return {"compound": compound, "error": "No lap times available"}
+    def predict(self, age: float) -> float:
+        """
+        Predict lap time delta for a given tire age.
         
-        tire_compound = self.compounds[compound]
+        Args:
+            age: Tire age in laps (can be fractional)
+            
+        Returns:
+            Predicted lap time delta in seconds (additional time vs baseline)
+            
+        Raises:
+            RuntimeError: If model hasn't been fitted
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before making predictions")
         
-        # Calculate temperature factor
-        temp_factor = self._calculate_temperature_factor(track_temp, tire_compound)
+        if age < 0:
+            age = 0
         
-        # Simulate degradation (simplified model)
-        stint_length = len(lap_times)
-        base_degradation = tire_compound.degradation_rate * temp_factor
+        # Apply quadratic model: delta = c + b*age + a*age^2
+        delta = (self.coefficients[0] + 
+                self.coefficients[1] * age + 
+                self.coefficients[2] * age * age)
         
-        degradation_per_lap = base_degradation * (1 + stint_length * 0.01)
-        total_degradation = degradation_per_lap * stint_length
+        # Ensure non-negative degradation
+        return max(0.0, delta)
+    
+    def predict_batch(self, ages: np.ndarray) -> np.ndarray:
+        """
+        Predict lap time deltas for multiple tire ages.
         
-        # Calculate optimal stint window
-        optimal_start = max(1, int(stint_length * 0.1))
-        optimal_end = min(stint_length, int(stint_length * 0.8))
+        Args:
+            ages: Array of tire ages in laps
+            
+        Returns:
+            Array of predicted lap time deltas in seconds
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before making predictions")
         
-        # Predict performance degradation curve
-        predicted_performance = self._predict_performance_curve(
-            stint_length, degradation_per_lap
-        )
+        ages = np.asarray(ages)
+        ages = np.maximum(ages, 0)  # Ensure non-negative ages
+        
+        # Vectorized quadratic prediction
+        deltas = (self.coefficients[0] + 
+                 self.coefficients[1] * ages + 
+                 self.coefficients[2] * ages * ages)
+        
+        return np.maximum(deltas, 0.0)  # Ensure non-negative degradation
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """
+        Get information about the fitted model.
+        
+        Returns:
+            Dictionary with model statistics and parameters
+        """
+        if not self.fitted:
+            return {"fitted": False, "error": "Model not fitted"}
         
         return {
-            "compound": compound,
-            "stint_length": stint_length,
-            "degradation_per_lap": round(degradation_per_lap, 3),
-            "total_degradation": round(total_degradation, 3),
-            "optimal_window": (optimal_start, optimal_end),
-            "predicted_performance": predicted_performance,
-            "temperature_factor": round(temp_factor, 2)
-        }
-    
-    def _calculate_temperature_factor(
-        self, 
-        track_temp: float, 
-        compound: TireCompound
-    ) -> float:
-        """Calculate how track temperature affects tire degradation."""
-        optimal_min, optimal_max = compound.optimal_temp_range
-        optimal_mid = (optimal_min + optimal_max) / 2
-        
-        if optimal_min <= track_temp <= optimal_max:
-            # In optimal range
-            return 1.0
-        elif track_temp < optimal_min:
-            # Too cold - increased degradation
-            return 1.0 + (optimal_min - track_temp) * 0.02
-        else:
-            # Too hot - increased degradation
-            return 1.0 + (track_temp - optimal_max) * 0.03
-    
-    def _predict_performance_curve(
-        self, 
-        stint_length: int, 
-        degradation_per_lap: float
-    ) -> List[float]:
-        """Predict the performance degradation curve over the stint."""
-        performance = []
-        base_performance = 100.0  # Starting at 100%
-        
-        for lap in range(stint_length):
-            # Exponential degradation model
-            current_performance = base_performance - (
-                degradation_per_lap * lap * (1 + lap * 0.01)
+            "fitted": True,
+            "coefficients": {
+                "constant": float(self.coefficients[0]),
+                "linear": float(self.coefficients[1]), 
+                "quadratic": float(self.coefficients[2])
+            },
+            "baseline_time": float(self.baseline_time),
+            "r_squared": float(self.r_squared),
+            "model_type": "quadratic",
+            "formula": "lap_delta = {:.4f} + {:.4f}*age + {:.4f}*age²".format(
+                self.coefficients[0], self.coefficients[1], self.coefficients[2]
             )
-            performance.append(round(max(current_performance, 70.0), 2))
-        
-        return performance
-    
-    def _generate_recommendations(
-        self, 
-        analyses: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Generate strategic recommendations based on analysis."""
-        if not analyses:
-            return {"message": "No analysis data available"}
-        
-        # Find best performing compound
-        best_compound = min(
-            analyses, 
-            key=lambda x: x.get("total_degradation", float('inf'))
-        )
-        
-        recommendations = {
-            "best_compound": best_compound.get("compound"),
-            "recommended_stint_length": best_compound.get("optimal_window", [0, 0])[1],
-            "strategy": "conservative"  # Placeholder
         }
+    
+    def plot_degradation_curve(self, max_age: int = 40) -> Dict[str, Any]:
+        """
+        Generate data for plotting the degradation curve.
         
-        return recommendations
+        Args:
+            max_age: Maximum tire age for the curve
+            
+        Returns:
+            Dictionary with age and delta arrays for plotting
+        """
+        if not self.fitted:
+            raise RuntimeError("Model must be fitted before plotting")
+        
+        ages = np.linspace(0, max_age, 100)
+        deltas = self.predict_batch(ages)
+        
+        return {
+            "ages": ages.tolist(),
+            "deltas": deltas.tolist(),
+            "baseline_time": float(self.baseline_time),
+            "max_degradation": float(np.max(deltas))
+        }
