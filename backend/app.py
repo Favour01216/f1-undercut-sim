@@ -8,7 +8,7 @@ and undercut simulation with probability calculations.
 import os
 import time
 import numpy as np
-from typing import Dict, Any, Optional, Literal
+from typing import Dict, Any, Optional, Literal, List, Tuple
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,13 +30,14 @@ from models.outlap import OutlapModel
 from models.pit import PitModel
 from services.jolpica import JolpicaClient
 from services.openf1 import OpenF1Client
+from config import config
 
 # Configure logging first
 configure_logging()
 logger = get_logger(__name__)
 
 # Initialize Sentry if DSN is provided
-sentry_dsn = os.getenv("SENTRY_DSN")
+sentry_dsn = config.SENTRY_DSN
 if sentry_dsn:
     sentry_sdk.init(
         dsn=sentry_dsn,
@@ -44,9 +45,9 @@ if sentry_dsn:
             FastApiIntegration(auto_enabling_integrations=False),
             StarletteIntegration(auto_enabling_integrations=False),
         ],
-        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
-        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
-        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.1")),
+        environment=config.SENTRY_ENVIRONMENT,
+        traces_sample_rate=config.SENTRY_TRACES_SAMPLE_RATE,
+        profiles_sample_rate=config.SENTRY_PROFILES_SAMPLE_RATE,
         attach_stacktrace=True,
         send_default_pii=False,
     )
@@ -85,6 +86,12 @@ app.add_middleware(
 
 # Add request middleware for logging and request IDs
 app.add_middleware(RequestMiddleware)
+
+@app.on_event("startup")
+async def startup_event():
+    """Log configuration and initialization status on startup."""
+    config.log_configuration()
+    logger.info("F1 Undercut Simulation API startup complete")
 
 # Initialize API clients
 openf1_client = OpenF1Client()
@@ -154,6 +161,12 @@ class SimulateRequest(BaseModel):
     samples: int = Field(
         1000, description="Number of Monte Carlo samples", ge=1, le=10000
     )
+    H: int = Field(
+        2, description="Number of laps to simulate after pit (1-5 laps)", ge=1, le=5
+    )
+    p_pit_next: float = Field(
+        1.0, description="Probability that driver B pits on lap 1 after A pits (0-1)", ge=0.0, le=1.0
+    )
 
 
 class SimulateResponse(BaseModel):
@@ -165,6 +178,18 @@ class SimulateResponse(BaseModel):
     outLapDelta_s: float = Field(..., description="Expected outlap penalty in seconds")
     avgMargin_s: Optional[float] = Field(
         None, description="Average margin of success/failure in seconds"
+    )
+    expected_margin_s: Optional[float] = Field(
+        None, description="Expected time margin in seconds"
+    )
+    ci_low_s: Optional[float] = Field(
+        None, description="90% confidence interval lower bound in seconds"
+    )
+    ci_high_s: Optional[float] = Field(
+        None, description="90% confidence interval upper bound in seconds"
+    )
+    H_used: int = Field(
+        ..., description="Number of laps simulated after pit"
     )
     assumptions: Dict[str, Any] = Field(
         ..., description="Model assumptions and parameters used"
@@ -283,13 +308,156 @@ def calculate_driver_gap(
     return base_gap * lap_factor
 
 
+def simulate_multi_lap_undercut(
+    models: Dict[str, Any],
+    current_gap: float,
+    compound_a: str,
+    H: int,
+    p_pit_next: float,
+    tire_age_b: int,
+    n_samples: int,
+    rng: np.random.Generator
+) -> Tuple[List[float], Dict[str, Any]]:
+    """
+    Simulate multi-lap undercut scenario with configurable horizon and pit strategies.
+    
+    Args:
+        models: Dictionary containing fitted models (deg, pit, outlap)
+        current_gap: Current gap between drivers in seconds
+        compound_a: Tire compound for driver A
+        H: Number of laps to simulate after pit
+        p_pit_next: Probability that driver B pits on lap 1 after A pits
+        tire_age_b: Current tire age for driver B
+        n_samples: Number of Monte Carlo samples
+        rng: Random number generator for reproducible results
+        
+    Returns:
+        Tuple of (margins list, simulation metadata)
+    """
+    deg_model = models.get("deg")
+    pit_model = models.get("pit")
+    outlap_model = models.get("outlap")
+    
+    # Get base model values
+    if pit_model is None:
+        pit_loss_mean = 24.0
+        pit_loss_std = 1.0
+    else:
+        pit_loss_mean = pit_model.sample_pit_time()
+        pit_loss_std = 1.0  # Standard deviation for pit time variation
+    
+    if outlap_model is None:
+        outlap_penalties = {"SOFT": 0.8, "MEDIUM": 1.4, "HARD": 2.2}
+        outlap_penalty_mean = outlap_penalties.get(compound_a, 1.4)
+        outlap_penalty_std = 0.3
+    else:
+        outlap_penalty_mean = outlap_model.sample(n=1)[0]
+        outlap_penalty_std = 0.3  # Standard deviation for outlap variation
+    
+    margins = []
+    scenario_counts = {"b_stays_out": 0, "b_pits_lap1": 0}
+    
+    for _ in range(n_samples):
+        # Sample pit loss for driver A
+        pit_time_a = rng.normal(pit_loss_mean, pit_loss_std)
+        
+        # Sample outlap penalty for driver A
+        outlap_penalty_a = rng.normal(outlap_penalty_mean, outlap_penalty_std)
+        
+        # At t0: Driver A pits
+        # A's initial time: current_gap + pit_time + outlap_penalty
+        time_a_cumulative = current_gap + pit_time_a + outlap_penalty_a
+        
+        # Determine if B pits on lap 1
+        b_pits_lap1 = rng.random() < p_pit_next
+        
+        if b_pits_lap1:
+            scenario_counts["b_pits_lap1"] += 1
+            
+            # B pits on lap k=1 (after A has already pitted)
+            # B's time for lap 1 (old tires, age = tire_age_b + 1)
+            if deg_model is None:
+                lap1_time_b = rng.normal(0, 0.1)  # Minimal variation for lap 1
+                degradation_residual = 0.05  # Fallback degradation per lap
+            else:
+                # Get degradation for lap 1 on old tires
+                old_tire_penalty = deg_model.get_fresh_tire_advantage(tire_age_b + 1, 0)
+                lap1_time_b = rng.normal(old_tire_penalty, 0.1)
+            
+            # B then pits: pit time + outlap penalty
+            pit_time_b = rng.normal(pit_loss_mean, pit_loss_std)
+            outlap_penalty_b = rng.normal(outlap_penalty_mean, outlap_penalty_std)
+            
+            # B's time after lap 1 and pit
+            time_b_cumulative = lap1_time_b + pit_time_b + outlap_penalty_b
+            
+            # Now both are on fresh tires for remaining laps
+            for k in range(2, H + 1):
+                # A is on tire age k, B is on tire age k-1
+                if deg_model is None:
+                    # Fallback: slight advantage for fresher tires
+                    a_lap_time = rng.normal(0.02 * k, 0.05)  # A gets slower 
+                    b_lap_time = rng.normal(0.02 * (k - 1), 0.05)  # B slightly faster
+                else:
+                    a_penalty = deg_model.get_fresh_tire_advantage(k, 0)
+                    b_penalty = deg_model.get_fresh_tire_advantage(k - 1, 0)
+                    
+                    a_lap_time = rng.normal(a_penalty, 0.05)
+                    b_lap_time = rng.normal(b_penalty, 0.05)
+                
+                time_a_cumulative += a_lap_time
+                time_b_cumulative += b_lap_time
+            
+        else:
+            scenario_counts["b_stays_out"] += 1
+            
+            # B stays out for all H laps on old tires
+            time_b_cumulative = 0
+            
+            for k in range(1, H + 1):
+                # A is on tire age k (fresh tires)
+                # B is on tire age tire_age_b + k (old tires)
+                
+                if deg_model is None:
+                    # Fallback: A gains advantage each lap
+                    fresh_advantage = 0.12  # seconds per lap for fresh tires
+                    a_lap_time = rng.normal(0.02 * k, 0.05)  # A degrades slowly
+                    b_lap_time = rng.normal(0.1 * (tire_age_b + k), 0.1)  # B degrades faster
+                else:
+                    # Use degradation model for realistic tire performance
+                    a_penalty = deg_model.get_fresh_tire_advantage(k, 0)
+                    b_penalty = deg_model.get_fresh_tire_advantage(tire_age_b + k, 0)
+                    
+                    a_lap_time = rng.normal(a_penalty, 0.05)
+                    b_lap_time = rng.normal(b_penalty, 0.1)
+                
+                time_a_cumulative += a_lap_time
+                time_b_cumulative += b_lap_time
+        
+        # Calculate net margin: positive means A gains time (successful undercut)
+        margin = time_b_cumulative - time_a_cumulative
+        margins.append(margin)
+    
+    # Simulation metadata
+    metadata = {
+        "scenario_counts": scenario_counts,
+        "pit_loss_mean": pit_loss_mean,
+        "outlap_penalty_mean": outlap_penalty_mean,
+        "H_laps": H,
+        "p_pit_next": p_pit_next,
+        "tire_age_b_initial": tire_age_b
+    }
+    
+    return margins, metadata
+
+
 @app.post("/simulate", response_model=SimulateResponse)
 async def simulate_undercut(request: SimulateRequest, req: Request) -> SimulateResponse:
     """
-    Simulate undercut probability between two drivers.
+    Simulate multi-lap undercut probability between two drivers.
 
     This endpoint calculates the probability that driver_a can successfully
-    undercut driver_b by pitting first and gaining track position.
+    undercut driver_b by pitting first and gaining track position over H laps.
     """
     start_time = time.time()
     
@@ -310,82 +478,74 @@ async def simulate_undercut(request: SimulateRequest, req: Request) -> SimulateR
             request.gp, request.year, request.driver_a, request.driver_b, request.lap_now
         )
         
-        # Get model predictions
+        # Get tire age for driver B (estimate based on stint position)
+        tire_age_b = max(5, request.lap_now // 3)  # Estimate tire age
+        
+        # Use deterministic RNG for reproducible results
+        rng = np.random.default_rng(seed=42)
+        
+        # Run multi-lap simulation
+        margins, metadata = simulate_multi_lap_undercut(
+            models=models,
+            current_gap=current_gap,
+            compound_a=request.compound_a,
+            H=request.H,
+            p_pit_next=request.p_pit_next,
+            tire_age_b=tire_age_b,
+            n_samples=request.samples,
+            rng=rng
+        )
+        
+        # Calculate statistics
+        margins_array = np.array(margins)
+        undercut_successes = np.sum(margins_array > 0)
+        p_undercut = undercut_successes / len(margins)
+        
+        # Calculate confidence intervals (90% CI)
+        expected_margin = float(np.mean(margins_array))
+        ci_low = float(np.percentile(margins_array, 5))   # 5th percentile
+        ci_high = float(np.percentile(margins_array, 95)) # 95th percentile
+        
+        # Get model values for response
         deg_model = models.get("deg")
         pit_model = models.get("pit")
         outlap_model = models.get("outlap")
         
-        # Use fallback values if models failed to fit
-        if deg_model is None:
-            # Use realistic fallback tire advantage
-            tire_advantage = 0.12  # seconds per lap advantage for fresh tires
-            logger.info("Using fallback tire advantage")
-        else:
-            # Get tire age for driver B (assume they've been on current tires longer)
-            tire_age_b = max(5, request.lap_now // 3)  # Estimate tire age
-            tire_advantage = deg_model.get_fresh_tire_advantage(
-                old_age=tire_age_b, new_age=2
-            )
+        # Extract pit loss and outlap penalty from metadata
+        pit_loss = metadata["pit_loss_mean"]
+        outlap_penalty = metadata["outlap_penalty_mean"]
         
-        if pit_model is None:
-            pit_loss = 24.0  # Default F1 pit stop time loss
-            logger.info("Using fallback pit loss")
-        else:
-            pit_loss = pit_model.sample_pit_time()
-        
-        if outlap_model is None:
-            # Use compound-specific fallback outlap penalties
-            outlap_penalties = {"SOFT": 0.8, "MEDIUM": 1.4, "HARD": 2.2}
-            outlap_penalty = outlap_penalties.get(request.compound_a, 1.4)
-            logger.info("Using fallback outlap penalty")
-        else:
-            outlap_penalty = outlap_model.sample(n=1)[0]
-        
-        # Monte Carlo simulation
-        n_samples = request.samples
-        undercut_successes = 0
-        margins = []
-        
-        for _ in range(n_samples):
-            # Sample variation in pit stop time
-            pit_time_sample = pit_loss + np.random.normal(0, 1.0)
-            
-            # Sample variation in outlap penalty
-            outlap_sample = outlap_penalty + np.random.normal(0, 0.3)
-            
-            # Calculate net time difference
-            # Positive means driver A gains time (successful undercut)
-            time_gained = tire_advantage - pit_time_sample - outlap_sample + current_gap
-            
-            if time_gained > 0:
-                undercut_successes += 1
-            
-            margins.append(time_gained)
-        
-        # Calculate results
-        p_undercut = undercut_successes / n_samples
-        avg_margin = float(np.mean(margins))
-        
-        # Prepare response
+        # Prepare assumptions
         assumptions = {
             "current_gap_s": current_gap,
-            "tire_advantage_s": tire_advantage,
-            "pit_loss_s": pit_loss,
-            "outlap_penalty_s": outlap_penalty,
-            "tire_age_driver_b": tire_age_b if deg_model else 10,
+            "tire_age_driver_b": tire_age_b,
+            "H_laps_simulated": request.H,
+            "p_pit_next": request.p_pit_next,
+            "compound_a": request.compound_a,
+            "scenario_distribution": metadata["scenario_counts"],
             "models_fitted": {
                 "degradation_model": deg_model is not None,
                 "pit_model": pit_model is not None,
                 "outlap_model": outlap_model is not None,
             },
-            "monte_carlo_samples": n_samples,
+            "monte_carlo_samples": request.samples,
+            "avg_degradation_penalty_s": float(np.mean([
+                models.get("deg").get_fresh_tire_advantage(tire_age_b + k, k) 
+                if models.get("deg") else 0.12 * k
+                for k in range(1, request.H + 1)
+            ])),
+            "success_margin_s": expected_margin,
         }
         
         response_data = {
             "p_undercut": p_undercut,
             "pitLoss_s": pit_loss,
             "outLapDelta_s": outlap_penalty,
-            "avgMargin_s": avg_margin,
+            "avgMargin_s": expected_margin,  # Backward compatibility
+            "expected_margin_s": expected_margin,
+            "ci_low_s": ci_low,
+            "ci_high_s": ci_high,
+            "H_used": request.H,
             "assumptions": assumptions,
         }
         
@@ -398,15 +558,22 @@ async def simulate_undercut(request: SimulateRequest, req: Request) -> SimulateR
         # Log the simulation
         duration = time.time() - start_time
         logger.info(
-            "Simulation completed",
+            "Multi-lap simulation completed",
             gp=request.gp,
             year=request.year,
+            H=request.H,
             p_undercut=p_undercut,
+            expected_margin=expected_margin,
+            ci_range=ci_high - ci_low,
             duration_ms=round(duration * 1000, 2),
             cache_key=cache_key[:8],
         )
         
         return SimulateResponse(**response_data)
+        
+    except Exception as e:
+        logger.error(f"Multi-lap simulation failed: {e}", gp=request.gp, year=request.year, H=request.H)
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
         
     except Exception as e:
         logger.error(f"Simulation failed: {e}", gp=request.gp, year=request.year)

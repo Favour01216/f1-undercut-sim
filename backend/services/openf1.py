@@ -19,6 +19,17 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .tyre_age import compute_tyre_age
+from .fastf1_enrichment import HybridDataEnricher
+
+# Import config with absolute path handling
+try:
+    from ..config import config
+except ImportError:
+    # Fallback for direct execution
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent.parent))
+    from config import config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,9 +56,16 @@ class OpenF1Client:
             base_url: OpenF1 API base URL
             cache_dir: Directory for caching Parquet files
         """
-        self.base_url = base_url or os.getenv("OPENF1_API_URL", "https://api.openf1.org/v1")
-        self.cache_dir = Path(cache_dir or "features")
+        self.base_url = base_url or config.OPENF1_API_URL
+        self.cache_dir = Path(cache_dir or config.CACHE_DIR)
         self.cache_dir.mkdir(exist_ok=True)
+        
+        # Initialize hybrid data enricher for compound data with config
+        enrichment_config = config.get_data_enrichment_config()
+        self.enricher = HybridDataEnricher(
+            cache_dir=enrichment_config["cache_dir"],
+            offline_mode=enrichment_config["offline_mode"]
+        )
         
         # Configure session with retry strategy
         self.session = requests.Session()
@@ -266,6 +284,9 @@ class OpenF1Client:
         
         # Add tire age computation using robust calculator
         df = self._add_tire_age_robust(df, session_key)
+        
+        # Enrich with compound data using hybrid enrichment
+        df = self.enricher.enrich_laps_with_compounds(df, gp, year)
         
         # Cache the results
         self._save_to_cache(df, cache_file)

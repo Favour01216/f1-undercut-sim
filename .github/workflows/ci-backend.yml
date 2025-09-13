@@ -57,8 +57,10 @@ jobs:
         run: |
           echo "ENV=test" >> $GITHUB_ENV
           echo "TZ=UTC" >> $GITHUB_ENV
+          echo "OFFLINE=1" >> $GITHUB_ENV
           echo "OPENF1_BASE_URL=http://localhost:9999" >> $GITHUB_ENV
           echo "RNG_SEED=42" >> $GITHUB_ENV
+          echo "FAST_MODE=true" >> $GITHUB_ENV
 
       - name: Install pre-commit and run checks
         run: |
@@ -67,10 +69,32 @@ jobs:
           pre-commit install
           pre-commit run --all-files
 
+      - name: Set up synthetic model parameters for tests
+        run: |
+          source .venv/bin/activate
+          # Create test parameters directory
+          mkdir -p features/model_params
+          # Generate minimal synthetic parameters for CI testing
+          python -c "
+          from backend.tests.fixtures.model_params import setup_minimal_model_params
+          from pathlib import Path
+          setup_minimal_model_params(Path('.'))
+          print('✅ Synthetic model parameters created for CI testing')
+          "
+
       - name: Run unit tests with pytest
         run: |
           source .venv/bin/activate
-          pytest backend/tests/ -m "not integration" --cov=backend --cov-report=term-missing
+          # Run all unit tests including new parameter fallback tests
+          pytest backend/tests/ \
+            -m "not integration" \
+            --cov=backend \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            -v \
+            --tb=short \
+            --strict-markers \
+            --disable-warnings
 
       - name: Upload coverage reports to Codecov
         if: matrix.python-version == '3.11'

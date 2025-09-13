@@ -1,0 +1,4 @@
+circuit,compound,deg_r2_mean,deg_r2_std,deg_r2_count,deg_rmse_mean,deg_rmse_std,deg_scope_<lambda>,deg_n_samples_mean,outlap_scope_<lambda>,outlap_n_samples_mean
+bahrain,MEDIUM,,,0,,,missing,0.000000,missing,0.000000
+imola,MEDIUM,,,0,,,missing,0.000000,missing,0.000000
+monza,MEDIUM,,,0,,,missing,0.000000,circuit_compound,28.000000

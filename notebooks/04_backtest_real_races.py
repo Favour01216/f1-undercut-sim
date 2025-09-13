@@ -44,6 +44,7 @@ import time
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from app import app
+from services.model_params import get_parameters_manager
 
 # Set random seed for deterministic results
 np.random.seed(42)
@@ -67,6 +68,10 @@ class F1BacktestAnalyzer:
         self.cache_dir = CACHE_DIR
         self.output_dir = OUTPUT_DIR
         
+        # Model parameter management
+        self.params_manager = get_parameters_manager()
+        self.model_quality_log = []  # Track which parameters were used for each simulation
+        
         # Create directories
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -75,6 +80,7 @@ class F1BacktestAnalyzer:
         print(f"   Mode: {'OFFLINE (cached data only)' if offline_mode else 'ONLINE (will fetch & cache)'}")
         print(f"   Cache: {self.cache_dir}")
         print(f"   Output: {self.output_dir}")
+        print(f"   Model Parameters: Loaded {len(self.params_manager.load_degradation_params())} degradation, {len(self.params_manager.load_outlap_params())} outlap")
         
     def fetch_or_load_data(self, gp: str, year: int) -> Dict[str, pd.DataFrame]:
         """
@@ -438,10 +444,45 @@ class F1BacktestAnalyzer:
             return attempts_df
         
         print(f"🎲 Running simulator predictions for {len(attempts_df)} attempts...")
+        print(f"🔍 Validating model parameters (R²>0.1 threshold)...")
         
         predictions = []
         
         for idx, attempt in attempts_df.iterrows():
+            # Validate model parameters before simulation
+            circuit = attempt['gp'].lower()
+            compound = attempt['compound_a'].upper()
+            
+            # Check degradation model quality
+            deg_params = self.params_manager.get_degradation_params(
+                circuit=circuit, 
+                compound=compound,
+                min_r2=0.1  # R² threshold
+            )
+            
+            # Check outlap model quality  
+            outlap_params = self.params_manager.get_outlap_params(
+                circuit=circuit,
+                compound=compound,
+                min_samples=5
+            )
+            
+            # Log model quality for this attempt
+            model_quality_entry = {
+                'idx': idx,
+                'gp': attempt['gp'],
+                'year': attempt['year'],
+                'circuit': circuit,
+                'compound': compound,
+                'deg_r2': deg_params.r2 if deg_params else None,
+                'deg_rmse': deg_params.rmse if deg_params else None,
+                'deg_scope': deg_params.scope if deg_params else 'missing',
+                'deg_n_samples': deg_params.n_samples if deg_params else 0,
+                'outlap_scope': outlap_params.scope if outlap_params else 'missing',
+                'outlap_n_samples': outlap_params.n_samples if outlap_params else 0
+            }
+            self.model_quality_log.append(model_quality_entry)
+            
             # Prepare simulator payload
             payload = {
                 "gp": attempt['gp'],
@@ -740,6 +781,47 @@ class F1BacktestAnalyzer:
         
         return summary_df
     
+    def save_model_quality_csv(self):
+        """Save model quality log to CSV for analysis."""
+        if not self.model_quality_log:
+            print("   ⚠️  No model quality data to save")
+            return
+            
+        print(f"💾 Saving model quality analysis...")
+        
+        # Convert to DataFrame
+        quality_df = pd.DataFrame(self.model_quality_log)
+        
+        # Add summary statistics per circuit/compound combination
+        summary_stats = quality_df.groupby(['circuit', 'compound']).agg({
+            'deg_r2': ['mean', 'std', 'count'],
+            'deg_rmse': ['mean', 'std'],
+            'deg_scope': lambda x: x.mode().iloc[0] if len(x.mode()) > 0 else 'unknown',
+            'deg_n_samples': 'mean',
+            'outlap_scope': lambda x: x.mode().iloc[0] if len(x.mode()) > 0 else 'unknown',
+            'outlap_n_samples': 'mean'
+        }).round(6)
+        
+        # Flatten column names
+        summary_stats.columns = ['_'.join(col).strip() for col in summary_stats.columns]
+        summary_stats = summary_stats.reset_index()
+        
+        # Save detailed log
+        quality_path = self.output_dir / "backtest_model_quality.csv"
+        quality_df.to_csv(quality_path, index=False, float_format='%.6f')
+        print(f"   💾 Model quality data saved: {quality_path}")
+        
+        # Save summary statistics
+        summary_path = self.output_dir / "backtest_model_quality_summary.csv"
+        summary_stats.to_csv(summary_path, index=False, float_format='%.6f')
+        print(f"   💾 Model quality summary saved: {summary_path}")
+        
+        # Print quick summary
+        print(f"   📊 Model quality overview:")
+        print(f"      Degradation models: {quality_df['deg_scope'].value_counts().to_dict()}")
+        print(f"      Outlap models: {quality_df['outlap_scope'].value_counts().to_dict()}")
+        print(f"      Mean R²: {quality_df['deg_r2'].mean():.3f} (±{quality_df['deg_r2'].std():.3f})")
+        
     def print_summary_table(self, summary_df: pd.DataFrame):
         """Print formatted summary table to stdout."""
         print("\n" + "="*80)
@@ -836,6 +918,9 @@ class F1BacktestAnalyzer:
         
         # Create summary report
         summary_df = self.create_summary_report(all_results)
+        
+        # Save model quality analysis
+        self.save_model_quality_csv()
         
         # Print results
         self.print_summary_table(summary_df)

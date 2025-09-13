@@ -73,6 +73,72 @@ params = manager.get_degradation_params(circuit='MONACO', compound='SOFT')
 
 ✨ **Replaced With**: Circuit and compound-specific parameters learned from real F1 data using robust statistical methods.
 
+## 🏁 Multi-Lap Undercut Simulation
+
+### **Advanced Multi-Lap Strategy Modeling**
+
+The simulator now supports **multi-lap undercut scenarios** that model realistic strategy battles over H laps instead of single-lap comparisons. This provides more accurate insights into how undercuts actually unfold in races.
+
+#### **Key Features**
+
+- **🕐 Configurable Horizon (H)**: Simulate undercuts over 1-5 laps (default: 2)
+- **🎲 Strategic Response Modeling**: Configurable probability for opponent pit responses
+- **📊 Enhanced Statistics**: 90% confidence intervals and scenario distributions
+- **🔄 Stochastic Simulation**: Per-lap degradation with Monte Carlo variation
+
+#### **Multi-Lap Simulation Logic**
+
+```python
+# At t0: Driver A pits (incurs pit loss + outlap penalty)
+# Driver B decision: Stay out or respond (probability p_pit_next)
+
+# Scenario 1: B stays out (1 - p_pit_next)
+for lap in range(1, H+1):
+    A_time = fresh_tire_performance(age=lap) + residual
+    B_time = old_tire_performance(age=initial_age+lap) + residual
+
+# Scenario 2: B pits on lap 1 (p_pit_next)
+lap_1_B = old_tire_time + pit_loss + outlap_penalty
+for lap in range(2, H+1):
+    A_time = fresh_tire_performance(age=lap) + residual
+    B_time = fresh_tire_performance(age=lap-1) + residual
+```
+
+#### **API Enhancement (Backward Compatible)**
+
+```json
+{
+  "gp": "bahrain",
+  "year": 2024,
+  "driver_a": "44",
+  "driver_b": "1",
+  "compound_a": "MEDIUM",
+  "lap_now": 25,
+  "H": 3, // NEW: Laps to simulate (1-5)
+  "p_pit_next": 0.7, // NEW: B pit response probability (0-1)
+  "samples": 1000
+}
+```
+
+**Response includes confidence intervals and scenario breakdowns:**
+
+```json
+{
+  "p_undercut": 0.68,
+  "expected_margin_s": 1.8,
+  "ci_low_s": -0.5, // 90% CI lower bound
+  "ci_high_s": 4.1, // 90% CI upper bound
+  "H_used": 3,
+  "assumptions": {
+    "scenario_distribution": {
+      // Strategy breakdown
+      "b_stays_out": 300,
+      "b_pits_lap1": 700
+    }
+  }
+}
+```
+
 ## 🚀 Quickstart
 
 ### ⚡ Quick Setup & Run
@@ -132,6 +198,7 @@ make e2e
 ### Manual Test Commands
 
 **Backend Tests:**
+
 ```bash
 # Run all backend unit tests
 pytest -m "not integration" --cov=backend --cov-report=term-missing
@@ -144,6 +211,7 @@ pytest --cov=backend --cov-report=html
 ```
 
 **Frontend Tests:**
+
 ```bash
 cd frontend
 
@@ -161,6 +229,7 @@ pnpm run e2e
 ```
 
 **Pre-commit Checks:**
+
 ```bash
 # Run all pre-commit hooks
 pre-commit run --all-files
