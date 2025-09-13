@@ -41,6 +41,7 @@ jobs:
           export OPENF1_BASE_URL=http://localhost:9999
           export RNG_SEED=42
           export LOG_LEVEL=WARNING
+          export PYTHONPATH=$GITHUB_WORKSPACE
 
           # Start FastAPI server in background
           cd backend
