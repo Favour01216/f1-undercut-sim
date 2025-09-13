@@ -384,7 +384,7 @@ export function SimulationForm() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-6xl mb-4">📊</div>
               <p className="text-muted-foreground text-center">
-                Configure your simulation parameters and click "Run Simulation"
+                Configure your simulation parameters and click &quot;Run Simulation&quot;
                 to see the undercut probability analysis
               </p>
             </CardContent>

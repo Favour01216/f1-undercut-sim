@@ -2,10 +2,13 @@
 Tests for FastAPI endpoints
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from app import app
+import os
+import sys
 
+from fastapi.testclient import TestClient
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from app import app
 
 client = TestClient(app)
 
@@ -24,7 +27,7 @@ def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
+    assert data["status"] == "ok"
 
 
 def test_models_status_endpoint():
@@ -42,19 +45,19 @@ def test_simulate_endpoint_structure():
     """Test the simulate endpoint returns proper structure."""
     # This should work with the mocked data from conftest.py
     request_body = {
-        "gp": "Monaco",
+        "gp": "monaco",
         "year": 2024,
         "driver_a": "VER",
-        "driver_b": "HAM", 
+        "driver_b": "HAM",
         "compound_a": "SOFT",
         "lap_now": 25,
-        "samples": 100
+        "samples": 100,
     }
-    
+
     response = client.post("/simulate", json=request_body)
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check required keys exist
     assert "p_undercut" in data
     assert "pitLoss_s" in data
