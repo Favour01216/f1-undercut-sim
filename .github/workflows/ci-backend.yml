@@ -2,17 +2,17 @@ name: ci-backend
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'backend/**'
-      - 'pyproject.toml'
-      - '.github/workflows/ci-backend.yml'
+      - "backend/**"
+      - "pyproject.toml"
+      - ".github/workflows/ci-backend.yml"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'backend/**'
-      - 'pyproject.toml'
-      - '.github/workflows/ci-backend.yml'
+      - "backend/**"
+      - "pyproject.toml"
+      - ".github/workflows/ci-backend.yml"
 
 defaults:
   run:
@@ -26,93 +26,93 @@ jobs:
         python-version: ["3.11"]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest pytest-cov freezegun pytest-mock
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov freezegun pytest-mock
 
-    - name: Set test environment variables
-      run: |
-        echo "ENV=test" >> $GITHUB_ENV
-        echo "TZ=UTC" >> $GITHUB_ENV
-        echo "OPENF1_BASE_URL=http://localhost:9999" >> $GITHUB_ENV
-        echo "JOLPICA_BASE_URL=http://localhost:9999" >> $GITHUB_ENV
+      - name: Set test environment variables
+        run: |
+          echo "ENV=test" >> $GITHUB_ENV
+          echo "TZ=UTC" >> $GITHUB_ENV
+          echo "OPENF1_BASE_URL=http://localhost:9999" >> $GITHUB_ENV
+          echo "JOLPICA_BASE_URL=http://localhost:9999" >> $GITHUB_ENV
 
-    - name: Install pre-commit and run checks
-      run: |
-        pip install pre-commit ruff black
-        pre-commit install
-        pre-commit run --all-files || echo "Pre-commit issues found, continuing..."
+      - name: Install pre-commit and run checks
+        run: |
+          pip install pre-commit ruff black
+          pre-commit install
+          pre-commit run --all-files || echo "Pre-commit issues found, continuing..."
 
-    - name: Run unit tests with pytest
-      working-directory: ./backend
-      run: |
-        python -m pytest tests/ -v \
-          --cov=models \
-          --cov=services \
-          --cov=app \
-          --cov-report=xml \
-          --cov-report=term-missing \
-          --cov-fail-under=80 \
-          -m "not integration"
+      - name: Run unit tests with pytest
+        working-directory: ./backend
+        run: |
+          python -m pytest tests/ -v \
+            --cov=models \
+            --cov=services \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -m "not integration"
 
-    - name: Upload coverage reports to Codecov
-      if: matrix.python-version == '3.11'
-      uses: codecov/codecov-action@v4
-      with:
-        file: backend/coverage.xml
-        flags: backend
-        name: backend-coverage
-        fail_ci_if_error: false
+      - name: Upload coverage reports to Codecov
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
 
   type-check:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-        pip install mypy
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install mypy
 
-    - name: Run type checking
-      working-directory: ./backend
-      run: |
-        # Add mypy or similar if needed
-        echo "Type checking would go here"
+      - name: Run type checking
+        working-directory: ./backend
+        run: |
+          # Add mypy or similar if needed
+          echo "Type checking would go here"
 
   security:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run security checks
-      run: |
-        pip install safety bandit
-        safety check --ignore 70612 || echo "Safety check completed with warnings"
-        bandit -r . -f json || echo "Bandit scan completed"
+      - name: Run security checks
+        run: |
+          pip install safety bandit
+          safety check --ignore 70612 || echo "Safety check completed with warnings"
+          bandit -r . -f json || echo "Bandit scan completed"
