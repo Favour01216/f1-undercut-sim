@@ -16,11 +16,11 @@ import numpy as np
 from typing import Dict, Any, Optional, Literal
 
 # Import our new modeling classes and API clients
-from .models.deg import DegModel
-from .models.pit import PitModel  
-from .models.outlap import OutlapModel
-from .services.openf1 import OpenF1Client
-from .services.jolpica import JolpicaClient
+from models.deg import DegModel
+from models.pit import PitModel  
+from models.outlap import OutlapModel
+from services.openf1 import OpenF1Client
+from services.jolpica import JolpicaClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
