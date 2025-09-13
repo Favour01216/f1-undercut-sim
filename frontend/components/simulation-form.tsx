@@ -10,13 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SimulationResults } from '@/components/simulation-results'
-import { 
-  SimulationRequest, 
-  SimulationResponse, 
-  GRAND_PRIX_OPTIONS, 
+import {
+  SimulationRequest,
+  SimulationResponse,
+  GRAND_PRIX_OPTIONS,
   DRIVER_OPTIONS,
   TIRE_COMPOUNDS,
-  YEAR_OPTIONS 
+  YEAR_OPTIONS
 } from '@/types/simulation'
 
 const simulationSchema = z.object({
@@ -154,7 +154,7 @@ export function SimulationForm() {
                     {DRIVER_OPTIONS.map((driver) => (
                       <SelectItem key={driver.id} value={driver.id}>
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: driver.color }}
                           />
@@ -186,7 +186,7 @@ export function SimulationForm() {
                     {DRIVER_OPTIONS.map((driver) => (
                       <SelectItem key={driver.id} value={driver.id}>
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: driver.color }}
                           />
@@ -220,7 +220,7 @@ export function SimulationForm() {
                   {TIRE_COMPOUNDS.map((compound) => (
                     <SelectItem key={compound.id} value={compound.id}>
                       <div className="flex items-center gap-2">
-                        <div 
+                        <div
                           className="w-3 h-3 rounded-full border border-gray-300"
                           style={{ backgroundColor: compound.color }}
                         />
@@ -276,9 +276,9 @@ export function SimulationForm() {
             </div>
 
             {/* Submit Button */}
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isLoading}
               size="lg"
             >
@@ -299,8 +299,8 @@ export function SimulationForm() {
               <div className="mt-4 p-3 bg-muted rounded-md">
                 <p className="text-sm font-medium">Scenario Summary:</p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedDriverA.name} attempting to undercut {selectedDriverB.name} 
-                  at the {selectedGP.name} on lap {form.watch('lap_now')} 
+                  {selectedDriverA.name} attempting to undercut {selectedDriverB.name}
+                  at the {selectedGP.name} on lap {form.watch('lap_now')}
                   using {form.watch('compound_a')} tires
                 </p>
               </div>
@@ -332,7 +332,7 @@ export function SimulationForm() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-6xl mb-4">📊</div>
               <p className="text-muted-foreground text-center">
-                Configure your simulation parameters and click "Run Simulation" 
+                Configure your simulation parameters and click "Run Simulation"
                 to see the undercut probability analysis
               </p>
             </CardContent>
