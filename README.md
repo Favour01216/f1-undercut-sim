@@ -10,11 +10,75 @@
 
 The F1 Undercut Simulator revolutionizes pit strategy analysis by providing data-driven insights into one of Formula 1's most critical tactical decisions. By leveraging machine learning models trained on real F1 data, this tool calculates undercut probabilities with unprecedented accuracy, helping teams and fans understand the complex mathematics behind successful pit strategies. The system integrates tire degradation physics, pit stop variability, and cold tire performance penalties into a unified Monte Carlo simulation framework.
 
+## 🤖 Data-Driven Modeling Architecture
+
+### Enhanced Statistical Models
+
+The simulator employs sophisticated **data-driven models** that learn circuit and compound-specific parameters from historical F1 data, eliminating hard-coded assumptions and providing more accurate predictions.
+
+#### **DegModel - Advanced Tire Degradation**
+
+- **Method**: Robust quadratic regression with Huber loss
+- **Features**: Circuit and compound-specific learning
+- **Model**: `lap_delta = a*age² + b*age + c` with outlier resistance
+- **Validation**: K-fold cross-validation for reliability assessment
+- **Fallback Hierarchy**: Circuit+compound → compound → global models
+
+```python
+# Circuit-specific model for Monaco with soft tires
+model = DegModel(circuit='MONACO', compound='SOFT')
+model.fit_from_data(monaco_lap_data)
+
+# Get fresh tire advantage (data-driven, no hard-coded bonuses)
+advantage = model.get_fresh_tire_advantage(old_age=15, new_age=2)
+# Returns: e.g., 3.2 seconds advantage for Monaco soft tires
+```
+
+#### **OutlapModel - Learned Cold Tire Penalties**
+
+- **Method**: Statistical analysis of outlap vs warmed lap performance
+- **Features**: Circuit and compound-specific penalty distributions
+- **Learning**: Analyzes stint lap 1 (outlap) vs laps 3+ (warmed)
+- **Output**: Learned penalty distributions, not fixed values
+
+```python
+# Learn circuit-specific outlap penalties
+model = OutlapModel(circuit='SPA', compound='MEDIUM')
+model.fit_from_data(spa_outlap_data)
+
+# Sample realistic penalties based on learned data
+penalty = model.sample(n=1)  # e.g., 1.8s for Spa medium tires
+```
+
+#### **ModelParametersManager - Intelligent Parameter Persistence**
+
+- **Storage**: Parquet files in `features/model_params/`
+- **Scope Hierarchy**: Circuit+compound specific → compound-only → global
+- **Schema**: Structured dataclasses for degradation and outlap parameters
+- **Fallback**: Automatic fallback to broader scopes when specific data unavailable
+
+```python
+# Automatic parameter loading with intelligent fallback
+manager = ModelParametersManager()
+
+# Try: Monaco + SOFT → SOFT only → Global → Default
+params = manager.get_degradation_params(circuit='MONACO', compound='SOFT')
+```
+
+### **Elimination of Hard-Coded Biases**
+
+✅ **Removed**: Fixed compound bonuses (`{'SOFT': 1.5, 'MEDIUM': 0.5, 'HARD': 0.0}`)  
+✅ **Removed**: Arbitrary base advantages (`base_advantage = 3.0`)  
+✅ **Removed**: Static outlap penalties (`{'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}`)
+
+✨ **Replaced With**: Circuit and compound-specific parameters learned from real F1 data using robust statistical methods.
+
 ## 🚀 Quickstart
 
 ### ⚡ Quick Setup & Run
 
 **1. Backend (FastAPI + Python)**
+
 ```bash
 # Clone repository
 git clone https://github.com/Favour01216/f1-undercut-sim.git
@@ -33,6 +97,7 @@ python app.py
 ```
 
 **2. Frontend (Next.js + TypeScript)**
+
 ```bash
 # Install Node.js dependencies
 cd frontend
@@ -44,6 +109,7 @@ pnpm run dev
 ```
 
 **3. Access the Application**
+
 - **🌐 Web Interface**: http://localhost:3000
 - **📚 API Documentation**: http://localhost:8000/docs
 - **❤️ Health Check**: http://localhost:8000/health
@@ -107,19 +173,59 @@ pre-commit install
 
 ### Statistical Models
 
-#### DegModel (Tire Degradation)
-- **Method**: Quadratic regression fitting
-- **Formula**: `lap_delta = a*age² + b*age + c`
-- **Validation**: R² > 0.7, minimum 5 data points
-- **Output**: Predicted lap time delta for given tire age
+### Enhanced Statistical Models
+
+#### DegModel (Enhanced Tire Degradation)
+
+- **Method**: Robust quadratic regression with Huber loss and iterative reweighting
+- **Features**: Circuit and compound-specific parameter learning
+- **Model**: `lap_delta = a*age² + b*age + c` with k-fold cross-validation
+- **Persistence**: Learned parameters saved to parquet files with intelligent fallback
+- **Validation**: R² scoring, RMSE calculation, outlier resistance
 
 ```python
-model = DegModel()
-model.fit(lap_data)  # Fits quadratic degradation curve
-delta = model.predict(tire_age=15)  # Returns time loss in seconds
+# Enhanced model with circuit/compound specificity
+model = DegModel(circuit='MONACO', compound='SOFT')
+model.fit_from_data(lap_data)  # Learns Monaco-specific soft tire behavior
+
+# Get data-driven tire advantages (no hard-coded bonuses)
+advantage = model.get_fresh_tire_advantage(old_age=15, new_age=2)
+delta = model.predict(tire_age=15)  # Circuit-specific degradation prediction
 ```
 
 #### PitModel (Pit Stop Times)
+
+- **Method**: Normal distribution fitting
+- **Parameters**: Mean and standard deviation of pit losses
+- **Validation**: Minimum 5 pit stops, outlier detection
+- **Output**: Random pit loss samples from fitted distribution
+
+```python
+model = PitModel()
+model.fit(pit_data)  # Fits normal distribution
+losses = model.sample(n=1000, rng=rng)  # Monte Carlo sampling
+```
+
+#### OutlapModel (Enhanced Cold Tire Performance)
+
+- **Method**: Circuit and compound-specific penalty learning
+- **Features**: Learned distributions from real outlap analysis
+- **Validation**: Separate outlap (stint lap 1) vs warmed laps (lap 3+)
+- **Persistence**: Stored parameters with hierarchical fallback system
+- **Output**: Data-driven penalty samples, not fixed values
+
+```python
+# Enhanced model with circuit/compound learning
+model = OutlapModel(circuit='SPA', compound='MEDIUM')
+model.fit_from_data(lap_data)  # Learns Spa-specific medium tire outlaps
+
+# Sample from learned penalty distribution
+penalty = model.sample(n=1000, rng=rng)  # Real data-driven penalties
+expected = model.get_expected_penalty()  # Mean penalty for this context
+```
+
+#### PitModel (Pit Stop Times)
+
 - **Method**: Normal distribution fitting
 - **Parameters**: Mean and standard deviation of pit losses
 - **Validation**: Minimum 5 pit stops, outlier detection
@@ -132,6 +238,7 @@ losses = model.sample(n=1000, rng=rng)  # Monte Carlo sampling
 ```
 
 #### OutlapModel (Cold Tire Performance)
+
 - **Method**: Compound-specific penalty modeling
 - **Compounds**: SOFT, MEDIUM, HARD tire analysis
 - **Validation**: Separate outlap (stint lap 1) vs warmed laps
@@ -143,29 +250,49 @@ model.fit(lap_data)  # Analyzes outlap vs warmed performance
 penalty = model.sample('SOFT', n=1000, rng=rng)  # Samples cold tire penalties
 ```
 
-### Monte Carlo Simulation
+### Enhanced Monte Carlo Simulation
 
-The undercut probability calculation uses Monte Carlo simulation with deterministic seeding:
+The undercut probability calculation uses **data-driven Monte Carlo simulation** with deterministic seeding and circuit-specific models:
 
 ```python
 # Deterministic RNG for reproducible results
 rng = np.random.default_rng(seed=42)
 
+# Enhanced models with circuit/compound specificity
+circuit_deg_model = DegModel(circuit=circuit, compound=compound_a)
+circuit_outlap_model = OutlapModel(circuit=circuit, compound=compound_a)
+
 # For each simulation iteration (default: 1000)
 pit_loss = PitModel.sample(rng=rng)
-outlap_penalty = OutlapModel.sample(compound, rng=rng)
-stay_out_delta = DegModel.predict(current_tire_age + 1)
+
+# Data-driven outlap penalty (learned from real data)
+outlap_penalty = circuit_outlap_model.sample(rng=rng)
+
+# Circuit-specific tire degradation (no hard-coded bonuses)
+fresh_advantage = circuit_deg_model.get_fresh_tire_advantage(
+    old_age=current_tire_age + lap,
+    new_age=1.0 + lap
+)
 
 # Undercut succeeds if:
-undercut_success = (current_gap + pit_loss + outlap_penalty) < stay_out_delta
+undercut_success = (current_gap + pit_loss + outlap_penalty) < fresh_advantage
 
-# Final probability
+# Final probability with confidence intervals
 p_undercut = (successful_undercuts / total_simulations) * 100
 ```
+
+**Key Enhancements:**
+
+- ✅ Circuit-specific degradation models
+- ✅ Compound-specific outlap penalties
+- ✅ Learned parameters from real F1 data
+- ✅ Intelligent fallback hierarchy
+- ✅ No hard-coded tire advantages
 
 ## 📊 Data Sources & Licenses
 
 ### OpenF1 API
+
 - **Purpose**: Live timing, telemetry, and session data
 - **Website**: [openf1.org](https://openf1.org/)
 - **License**: Public API, fair use terms
@@ -173,6 +300,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 - **Rate Limits**: Respectful usage with caching and retry logic
 
 ### Jolpica F1 API (Ergast)
+
 - **Purpose**: Historical race results and schedule data
 - **Website**: [ergast.com/mrd](http://ergast.com/mrd/)
 - **License**: Creative Commons Attribution-NonCommercial-ShareAlike
@@ -180,6 +308,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 - **Historical**: Complete F1 data from 1950 to present
 
 ### FastF1 (Optional Enhancement)
+
 - **Purpose**: Advanced telemetry analysis
 - **Website**: [docs.fastf1.dev](https://docs.fastf1.dev/)
 - **License**: MIT License
@@ -191,6 +320,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 ### Running Tests
 
 **Backend Tests**
+
 ```bash
 cd backend
 
@@ -208,6 +338,7 @@ python -m pytest tests/ -v -m "integration"
 ```
 
 **Frontend Tests**
+
 ```bash
 cd frontend
 
@@ -224,11 +355,13 @@ pnpm run build
 ### Development Setup
 
 **Prerequisites:**
+
 - Python 3.11+
 - Node.js 20+
 - pnpm 9+
 
 **Environment Setup:**
+
 ```bash
 # Copy environment template
 cp .env.example .env
@@ -243,6 +376,7 @@ pre-commit install
 ### Code Quality
 
 All code is automatically formatted and linted using:
+
 - **Ruff**: Fast Python linter and formatter (line-length: 100)
 - **Black**: Python code formatter (fallback)
 - **ESLint**: JavaScript/TypeScript linting
@@ -253,6 +387,7 @@ All code is automatically formatted and linted using:
 ### GitHub Actions Workflows
 
 **Backend CI** (`.github/workflows/ci-backend.yml`):
+
 - Python 3.11 testing
 - Pre-commit hook validation
 - Unit tests with 80% coverage requirement
@@ -260,21 +395,134 @@ All code is automatically formatted and linted using:
 - Type checking
 
 **Frontend CI** (`.github/workflows/ci-frontend.yml`):
+
 - Node.js 20 with pnpm
 - TypeScript compilation
-- ESLint validation  
+- ESLint validation
 - Build verification
 - Bundle size analysis
 
 ### Branch Protection
 
 **Required Status Checks:**
+
 - `ci-backend` must pass
 - `ci-frontend` must pass
 - All tests deterministic (no network calls in unit tests)
 - 80%+ test coverage
 
-## 📦 Project Structure
+## � Monitoring & Observability
+
+### Error Tracking with Sentry
+
+This application includes comprehensive error tracking and performance monitoring using [Sentry](https://sentry.io/).
+
+#### Backend Configuration
+
+Set the following environment variables for the FastAPI backend:
+
+```bash
+# Required: Sentry DSN for error tracking
+SENTRY_DSN=https://your-dsn@o12345.ingest.sentry.io/67890
+
+# Optional: Environment name (default: development)
+SENTRY_ENVIRONMENT=production
+
+# Optional: Performance monitoring sample rates (default: 0.1)
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0.1
+
+# Optional: Logging level (default: INFO)
+LOG_LEVEL=INFO
+```
+
+#### Frontend Configuration
+
+Set the following environment variables for the Next.js frontend:
+
+```bash
+# Required: Enable Sentry (must be 'true' to activate)
+NEXT_PUBLIC_ENABLE_SENTRY=true
+
+# Required: Sentry DSN (can be same as backend)
+NEXT_PUBLIC_SENTRY_DSN=https://your-dsn@o12345.ingest.sentry.io/67890
+
+# Optional: Environment name (default: development)
+NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
+
+# Optional: Performance monitoring sample rate (default: 0.1)
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# Optional: Sentry organization and project for source map uploads
+SENTRY_ORG=your-org
+SENTRY_PROJECT=your-project
+```
+
+#### What Gets Monitored
+
+**Backend (FastAPI):**
+
+- All API endpoint errors with request context
+- Performance metrics for `/simulate` endpoint
+- Request timing and throughput
+- Model fitting failures and data issues
+- Structured JSON logs with request IDs
+
+**Frontend (Next.js):**
+
+- JavaScript errors and unhandled exceptions
+- API failure responses with status codes
+- React component errors via Error Boundary
+- User interaction errors and form validation
+
+#### Privacy & Data Protection
+
+**⚠️ Privacy Notice**: This application is designed with privacy in mind:
+
+- **No PII in Logs**: Driver names and personally identifiable information are never logged
+- **Input Hashing**: Simulation inputs are hashed (SHA256) for privacy-safe request tracking
+- **Rounded Outputs**: Numerical results are rounded before logging to prevent precision-based identification
+- **Request IDs**: Each request gets a unique UUID for correlation without exposing user data
+- **No Default PII**: Sentry is configured with `sendDefaultPii: false`
+
+**Logged Data Examples:**
+
+```json
+{
+  "level": "info",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Simulation completed successfully",
+  "input_hash": "a1b2c3d4e5f6789",
+  "duration_ms": 245.67,
+  "p_undercut": 0.675,
+  "models_used": { "deg": true, "pit": true, "outlap": false }
+}
+```
+
+#### Local Development
+
+For local development, you can disable Sentry monitoring:
+
+```bash
+# Disable Sentry completely
+NEXT_PUBLIC_ENABLE_SENTRY=false
+# Don't set SENTRY_DSN
+```
+
+Logs will still be output to the console for debugging purposes.
+
+#### Setting Up Sentry
+
+1. **Create a Sentry Account**: Sign up at [sentry.io](https://sentry.io/)
+2. **Create Projects**: Set up separate projects for backend and frontend
+3. **Get DSNs**: Copy the DSN from each project's settings
+4. **Configure Environment**: Set the environment variables listed above
+5. **Deploy**: Your application will start sending telemetry data to Sentry
+
+For more details, see the [Sentry documentation](https://docs.sentry.io/).
+
+## �📦 Project Structure
 
 ```
 f1-undercut-sim/
@@ -318,18 +566,21 @@ f1-undercut-sim/
 ### Current Limitations
 
 #### Data Limitations
+
 - **Historical Coverage**: OpenF1 data available from 2023+ (recent seasons only)
 - **Session Matching**: GP name matching requires manual mapping for some circuits
 - **Weather Data**: Current models don't account for weather impact on strategy
 - **Tire Compound**: Limited to basic compound types (SOFT, MEDIUM, HARD)
 
 #### Model Limitations
+
 - **Track Specificity**: Models are not track-specific (Monaco vs Monza differences)
 - **Traffic Modeling**: Doesn't account for traffic impact on lap times
 - **DRS Zones**: No explicit DRS impact on overtaking probability post-undercut
 - **Fuel Load**: Degradation models don't account for decreasing fuel weight
 
 #### Technical Limitations
+
 - **Real-time Data**: No live race integration (historical analysis only)
 - **Driver Skill**: Models assume equal driver performance
 - **Car Performance**: No car-specific performance differences modeled
@@ -338,6 +589,7 @@ f1-undercut-sim/
 ### Future Enhancements
 
 #### Data & Modeling
+
 - [ ] **Weather Integration**: Incorporate weather data for strategy impact
 - [ ] **Track-Specific Models**: Individual models for each circuit
 - [ ] **Machine Learning**: Advanced ML models (Random Forest, Neural Networks)
@@ -345,7 +597,8 @@ f1-undercut-sim/
 - [ ] **Multi-compound Strategy**: Complex tire strategy optimization
 - [ ] **Traffic Simulation**: Model traffic impact on undercut success
 
-#### Features & User Experience  
+#### Features & User Experience
+
 - [ ] **Mobile App**: React Native mobile application
 - [ ] **Team Dashboard**: Multi-driver strategy comparison dashboard
 - [ ] **Historical Analysis**: Season-long strategy pattern analysis
@@ -354,8 +607,9 @@ f1-undercut-sim/
 - [ ] **Collaborative Features**: Team strategy sharing and discussion
 
 #### Technical Improvements
+
 - [ ] **Performance Optimization**: GPU acceleration for Monte Carlo simulations
-- [ ] **Database Integration**: PostgreSQL for historical data persistence  
+- [ ] **Database Integration**: PostgreSQL for historical data persistence
 - [ ] **Microservices**: Containerized deployment with Kubernetes
 - [ ] **A/B Testing**: Model performance comparison framework
 - [ ] **Documentation**: Interactive API documentation with live examples
@@ -364,6 +618,7 @@ f1-undercut-sim/
 ## 🤝 Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
 - **Development Setup**: Local environment configuration
 - **Code Style**: Formatting and linting requirements
 - **Testing Guidelines**: Unit and integration test standards
@@ -377,11 +632,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 **Data Providers:**
+
 - **OpenF1** for live timing and telemetry data
 - **Jolpica F1 (Ergast)** for historical race data
 - **Formula 1** for the amazing sport that inspired this project
 
 **Technologies:**
+
 - **FastAPI** for the robust backend framework
 - **Next.js** for the modern frontend experience
 - **Plotly.js** for beautiful data visualizations

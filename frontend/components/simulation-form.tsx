@@ -1,84 +1,121 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
+import { useState, useCallback, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { debounce } from "lodash";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SimulationResults } from '@/components/simulation-results'
+import { Button } from "@/components/ui/button";
 import {
-  SimulationRequest,
-  SimulationResponse,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SimulationResults } from "@/components/simulation-results";
+import { useSimulateMutation } from "@/lib/hooks";
+import {
+  type SimulationRequest,
   GRAND_PRIX_OPTIONS,
   DRIVER_OPTIONS,
   TIRE_COMPOUNDS,
-  YEAR_OPTIONS
-} from '@/types/simulation'
+  YEAR_OPTIONS,
+} from "@/types/simulation";
+import { type SimulationResponse } from "@/lib/api";
 
 const simulationSchema = z.object({
-  gp: z.string().min(1, 'Please select a Grand Prix'),
+  gp: z.string().min(1, "Please select a Grand Prix"),
   year: z.number().min(2020).max(2024),
-  driver_a: z.string().min(1, 'Please select Driver A'),
-  driver_b: z.string().min(1, 'Please select Driver B'),
-  compound_a: z.enum(['SOFT', 'MEDIUM', 'HARD']),
-  lap_now: z.number().min(1).max(100, 'Lap must be between 1 and 100'),
+  driver_a: z.string().min(1, "Please select Driver A"),
+  driver_b: z.string().min(1, "Please select Driver B"),
+  compound_a: z.enum(["SOFT", "MEDIUM", "HARD"]),
+  lap_now: z.number().min(1).max(100, "Lap must be between 1 and 100"),
   samples: z.number().min(100).max(10000).optional().default(1000),
-})
+});
 
-type SimulationFormData = z.infer<typeof simulationSchema>
+type SimulationFormData = z.infer<typeof simulationSchema>;
 
 export function SimulationForm() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<SimulationResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<SimulationResponse | null>(null);
+  const [lastSubmission, setLastSubmission] = useState<Date | null>(null);
 
   const form = useForm<SimulationFormData>({
     resolver: zodResolver(simulationSchema),
     defaultValues: {
-      gp: '',
+      gp: "",
       year: 2024,
-      driver_a: '',
-      driver_b: '',
-      compound_a: 'MEDIUM',
+      driver_a: "",
+      driver_b: "",
+      compound_a: "MEDIUM",
       lap_now: 25,
       samples: 1000,
     },
-  })
+  });
 
-  const onSubmit = async (data: SimulationFormData) => {
-    setIsLoading(true)
-    setError(null)
-    setResult(null)
+  // Use React Query mutation for simulations
+  const simulateMutation = useSimulateMutation();
 
-    try {
-      const response = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
+  // Debounced submit function to prevent duplicate submissions
+  const debouncedSubmit = useMemo(
+    () =>
+      debounce(async (data: SimulationFormData) => {
+        // Prevent duplicate submissions within 300ms
+        const now = new Date();
+        if (lastSubmission && now.getTime() - lastSubmission.getTime() < 300) {
+          return;
+        }
+        setLastSubmission(now);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
+        try {
+          const result = await simulateMutation.mutateAsync(
+            data as SimulationRequest
+          );
+          setResult(result);
+        } catch (error) {
+          // Error handling is done by React Query
+          console.error("Simulation failed:", error);
+        }
+      }, 300),
+    [simulateMutation, lastSubmission]
+  );
 
-      const result: SimulationResponse = await response.json()
-      setResult(result)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Memoized submit handler
+  const onSubmit = useCallback(
+    (data: SimulationFormData) => {
+      debouncedSubmit(data);
+    },
+    [debouncedSubmit]
+  );
 
-  const selectedDriverA = DRIVER_OPTIONS.find(d => d.id === form.watch('driver_a'))
-  const selectedDriverB = DRIVER_OPTIONS.find(d => d.id === form.watch('driver_b'))
-  const selectedGP = GRAND_PRIX_OPTIONS.find(gp => gp.id === form.watch('gp'))
+  // Memoized derived state
+  const isLoading = simulateMutation.isPending;
+  const error = simulateMutation.error?.message || null;
+
+  // Memoized selected options for performance
+  const selectedDriverA = useMemo(
+    () => DRIVER_OPTIONS.find((d) => d.id === form.watch("driver_a")),
+    [form.watch("driver_a")]
+  );
+
+  const selectedDriverB = useMemo(
+    () => DRIVER_OPTIONS.find((d) => d.id === form.watch("driver_b")),
+    [form.watch("driver_b")]
+  );
+
+  const selectedGP = useMemo(
+    () => GRAND_PRIX_OPTIONS.find((gp) => gp.id === form.watch("gp")),
+    [form.watch("gp")]
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -98,8 +135,8 @@ export function SimulationForm() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Grand Prix</label>
               <Select
-                value={form.watch('gp')}
-                onValueChange={(value) => form.setValue('gp', value)}
+                value={form.watch("gp")}
+                onValueChange={(value) => form.setValue("gp", value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a Grand Prix" />
@@ -113,7 +150,9 @@ export function SimulationForm() {
                 </SelectContent>
               </Select>
               {form.formState.errors.gp && (
-                <p className="text-sm text-destructive">{form.formState.errors.gp.message}</p>
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.gp.message}
+                </p>
               )}
             </div>
 
@@ -121,8 +160,10 @@ export function SimulationForm() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Year</label>
               <Select
-                value={form.watch('year').toString()}
-                onValueChange={(value) => form.setValue('year', parseInt(value))}
+                value={form.watch("year").toString()}
+                onValueChange={(value) =>
+                  form.setValue("year", parseInt(value))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -144,8 +185,8 @@ export function SimulationForm() {
                   🚗 Driver A (Undercutting)
                 </label>
                 <Select
-                  value={form.watch('driver_a')}
-                  onValueChange={(value) => form.setValue('driver_a', value)}
+                  value={form.watch("driver_a")}
+                  onValueChange={(value) => form.setValue("driver_a", value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select driver" />
@@ -176,8 +217,8 @@ export function SimulationForm() {
                   🎯 Driver B (Being Undercut)
                 </label>
                 <Select
-                  value={form.watch('driver_b')}
-                  onValueChange={(value) => form.setValue('driver_b', value)}
+                  value={form.watch("driver_b")}
+                  onValueChange={(value) => form.setValue("driver_b", value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select driver" />
@@ -210,8 +251,13 @@ export function SimulationForm() {
                 🛞 Tire Compound (Driver A)
               </label>
               <Select
-                value={form.watch('compound_a')}
-                onValueChange={(value) => form.setValue('compound_a', value as 'SOFT' | 'MEDIUM' | 'HARD')}
+                value={form.watch("compound_a")}
+                onValueChange={(value) =>
+                  form.setValue(
+                    "compound_a",
+                    value as "SOFT" | "MEDIUM" | "HARD"
+                  )
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -242,11 +288,13 @@ export function SimulationForm() {
                 type="number"
                 min="1"
                 max="100"
-                {...form.register('lap_now', { valueAsNumber: true })}
+                {...form.register("lap_now", { valueAsNumber: true })}
                 placeholder="25"
               />
               {form.formState.errors.lap_now && (
-                <p className="text-sm text-destructive">{form.formState.errors.lap_now.message}</p>
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.lap_now.message}
+                </p>
               )}
             </div>
 
@@ -256,8 +304,10 @@ export function SimulationForm() {
                 🎲 Monte Carlo Samples
               </label>
               <Select
-                value={form.watch('samples')?.toString() || '1000'}
-                onValueChange={(value) => form.setValue('samples', parseInt(value))}
+                value={form.watch("samples")?.toString() || "1000"}
+                onValueChange={(value) =>
+                  form.setValue("samples", parseInt(value))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -288,9 +338,7 @@ export function SimulationForm() {
                   Simulating...
                 </>
               ) : (
-                <>
-                  🚀 Run Simulation
-                </>
+                <>🚀 Run Simulation</>
               )}
             </Button>
 
@@ -299,9 +347,10 @@ export function SimulationForm() {
               <div className="mt-4 p-3 bg-muted rounded-md">
                 <p className="text-sm font-medium">Scenario Summary:</p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedDriverA.name} attempting to undercut {selectedDriverB.name}
-                  at the {selectedGP.name} on lap {form.watch('lap_now')}
-                  using {form.watch('compound_a')} tires
+                  {selectedDriverA.name} attempting to undercut{" "}
+                  {selectedDriverB.name}
+                  at the {selectedGP.name} on lap {form.watch("lap_now")}
+                  using {form.watch("compound_a")} tires
                 </p>
               </div>
             )}
@@ -314,12 +363,15 @@ export function SimulationForm() {
         {error && (
           <Card className="border-destructive">
             <CardHeader>
-              <CardTitle className="text-destructive">⚠️ Simulation Error</CardTitle>
+              <CardTitle className="text-destructive">
+                ⚠️ Simulation Error
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm">{error}</p>
               <p className="text-xs text-muted-foreground mt-2">
-                Make sure the FastAPI backend is running on http://localhost:8000
+                Make sure the FastAPI backend is running on
+                http://localhost:8000
               </p>
             </CardContent>
           </Card>
@@ -340,5 +392,5 @@ export function SimulationForm() {
         )}
       </div>
     </div>
-  )
+  );
 }
