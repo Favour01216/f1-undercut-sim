@@ -33,24 +33,20 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm i --frozen-lockfile
+        working-directory: ./frontend
+        run: pnpm i --frozen-lockfile
 
       - name: Run linting
-        run: |
-          cd frontend
-          pnpm run lint
+        working-directory: ./frontend
+        run: pnpm run lint
 
       - name: Run type checking
-        run: |
-          cd frontend
-          pnpm run typecheck
+        working-directory: ./frontend
+        run: pnpm run typecheck
 
       - name: Build application
-        run: |
-          cd frontend
-          pnpm run build
+        working-directory: ./frontend
+        run: pnpm run build
 
       - name: Check bundle size
         run: |
@@ -69,12 +65,10 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm i --frozen-lockfile
+        working-directory: ./frontend
+        run: pnpm i --frozen-lockfile
 
       - name: Run security audit
-        run: |
-          cd frontend
-          pnpm audit --audit-level moderate
+        working-directory: ./frontend
+        run: pnpm audit --audit-level moderate
         continue-on-error: true

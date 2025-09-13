@@ -41,13 +41,11 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
 
       - name: Install backend dependencies
-        working-directory: ./backend
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -r requirements.txt
 
       - name: Start backend server
-        working-directory: ./backend
         run: |
           # Set test environment variables
           export ENV=test
@@ -55,6 +53,7 @@ jobs:
           export LOG_LEVEL=WARNING
 
           # Start FastAPI server in background
+          cd backend
           python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
           echo $! > backend.pid
 
@@ -72,24 +71,20 @@ jobs:
           echo "Backend is ready!"
 
       - name: Install frontend dependencies
-        run: |
-          cd frontend
-          pnpm i --frozen-lockfile
+        working-directory: ./frontend
+        run: pnpm i --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: |
-          cd frontend
-          npx playwright install chromium
+        working-directory: ./frontend
+        run: npx playwright install chromium
 
       - name: Build frontend
-        run: |
-          cd frontend
-          pnpm run build
+        working-directory: ./frontend
+        run: pnpm run build
 
       - name: Run Playwright tests
-        run: |
-          cd frontend
-          npx playwright test
+        working-directory: ./frontend
+        run: npx playwright test
         env:
           # Ensure tests run against local backend
           NEXT_PUBLIC_API_URL: http://localhost:8000
@@ -112,7 +107,6 @@ jobs:
 
       - name: Stop backend server
         if: always()
-        working-directory: ./backend
         run: |
           if [ -f backend.pid ]; then
             kill $(cat backend.pid) || true
@@ -160,18 +154,16 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm i --frozen-lockfile
+        working-directory: ./frontend
+        run: pnpm i --frozen-lockfile
 
       - name: Build application
-        run: |
-          cd frontend
-          pnpm run build
+        working-directory: ./frontend
+        run: pnpm run build
 
       - name: Start application
+        working-directory: ./frontend
         run: |
-          cd frontend
           pnpm start &
           echo $! > app.pid
 
@@ -199,7 +191,6 @@ jobs:
 
       - name: Stop application
         if: always()
-        working-directory: ./frontend
         run: |
           if [ -f app.pid ]; then
             kill $(cat app.pid) || true
