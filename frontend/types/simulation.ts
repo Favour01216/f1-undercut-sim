@@ -12,6 +12,7 @@ export interface SimulationResponse {
   p_undercut: number
   pitLoss_s: number
   outLapDelta_s: number
+  avgMargin_s?: number
   assumptions: {
     current_gap_s: number
     tire_age_driver_b: number
@@ -21,6 +22,11 @@ export interface SimulationResponse {
       outlap_model: boolean
     }
     monte_carlo_samples: number
+    gap_s?: number
+    tyre_age_b?: number
+    degradation_model?: string
+    pit_model?: string
+    outlap_model?: string
     [key: string]: any
   }
 }

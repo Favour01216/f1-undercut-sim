@@ -10,17 +10,6 @@ jobs:
   ci-e2e:
     runs-on: ubuntu-latest
 
-    services:
-      # Backend service for API endpoints
-      backend:
-        image: python:3.11
-        ports:
-          - 8000:8000
-        options: >-
-          --health-cmd "curl -f http://localhost:8000/ || exit 1"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 3
 
     steps:
       - name: Checkout repository
@@ -41,21 +30,22 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
 
       - name: Install backend dependencies
-        working-directory: ./backend
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -r requirements.txt
 
       - name: Start backend server
-        working-directory: ./backend
         run: |
           # Set test environment variables
           export ENV=test
           export OPENF1_BASE_URL=http://localhost:9999
+          export RNG_SEED=42
           export LOG_LEVEL=WARNING
+          export PYTHONPATH=$GITHUB_WORKSPACE
 
           # Start FastAPI server in background
-          python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
+          cd backend
+          nohup python -m uvicorn app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
           echo $! > backend.pid
 
           # Wait for backend to be ready
@@ -66,6 +56,8 @@ jobs:
             timeout=$((timeout - 2))
             if [ $timeout -le 0 ]; then
               echo "Backend failed to start within 60 seconds"
+              echo "Backend logs:"
+              cat backend.log
               exit 1
             fi
           done
@@ -73,7 +65,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: pnpm i --frozen-lockfile
 
       - name: Install Playwright browsers
         working-directory: ./frontend
@@ -81,7 +73,7 @@ jobs:
 
       - name: Build frontend
         working-directory: ./frontend
-        run: npm run build
+        run: pnpm run build
 
       - name: Run Playwright tests
         working-directory: ./frontend
@@ -108,7 +100,6 @@ jobs:
 
       - name: Stop backend server
         if: always()
-        working-directory: ./backend
         run: |
           if [ -f backend.pid ]; then
             kill $(cat backend.pid) || true
@@ -119,6 +110,7 @@ jobs:
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const path = require('path');
@@ -154,21 +146,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: pnpm i --frozen-lockfile
 
       - name: Build application
         working-directory: ./frontend
-        run: npm run build
+        run: pnpm run build
 
       - name: Start application
         working-directory: ./frontend
         run: |
-          npm start &
+          pnpm start &
           echo $! > app.pid
 
           # Wait for app to be ready
@@ -195,7 +185,6 @@ jobs:
 
       - name: Stop application
         if: always()
-        working-directory: ./frontend
         run: |
           if [ -f app.pid ]; then
             kill $(cat app.pid) || true

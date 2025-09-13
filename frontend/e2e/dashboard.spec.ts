@@ -87,7 +87,7 @@ test.describe("F1 Strategy Dashboard", () => {
     ];
 
     for (let i = 0; i < tabOrder.length; i++) {
-      const element = page.getByRole(tabOrder[i].role, {
+      const element = page.getByRole(tabOrder[i].role as any, {
         name: tabOrder[i].name,
       });
       await expect(element).toBeFocused();

@@ -136,9 +136,8 @@ test.describe("Simulation Functionality", () => {
     ).toBeVisible();
 
     // Verify loading skeletons appear
-    await expect(page.locator('[aria-label*="loading"]')).toHaveCount({
+    await expect(page.locator('[aria-label*="loading"]')).toHaveCount(4, {
       timeout: 1000,
-      expected: 4,
     }); // 4 stat cards
 
     // Wait for completion
