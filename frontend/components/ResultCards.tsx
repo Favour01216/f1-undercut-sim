@@ -236,9 +236,6 @@ export const ResultCards: React.FC<ResultCardsProps> = ({ currentRequest }) => {
         queryFn: () => currentRequest ? apiClient.simulate(currentRequest) : null,
         enabled: !!currentRequest,
         staleTime: 30 * 1000, // 30 seconds
-        onSuccess: () => {
-            setLastUpdated(new Date());
-        },
     });
 
     // Update timestamp when data changes

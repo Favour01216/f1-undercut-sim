@@ -33,7 +33,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-form": "^0.0.3",
-    "@radix-ui/react-label": "^1.0.2",
+    "@radix-ui/react-label": "^2.1.7",
     "react-hook-form": "^7.47.0",
     "@hookform/resolvers": "^3.3.2",
     "zod": "^3.22.4",
