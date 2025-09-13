@@ -13,6 +13,7 @@ pydantic>=2.4.0,<2.12.0
 
 # HTTP client
 httpx>=0.24.0,<1.0.0
+requests>=2.31.0,<3.0.0
 
 # Testing
 pytest>=7.4.0,<8.0.0

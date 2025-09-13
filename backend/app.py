@@ -13,7 +13,7 @@ import uvicorn
 import os
 import logging
 import numpy as np
-from typing import Dict, Any, Optional, Literal
+from typing import Any, Optional, Literal, Dict
 
 # Import our new modeling classes and API clients
 from models.deg import DegModel
@@ -281,7 +281,7 @@ async def simulate_undercut(request: SimIn) -> SimOut:
         # Calculate average margin (positive = success, negative = failure)
         margins = [
             (gap_seconds + deg - (pit + outlap)) 
-            for pit, outlap, deg in zip(pit_losses, outlap_deltas, degradation_penalties)
+            for pit, outlap, deg in zip(pit_losses, outlap_deltas, degradation_penalties, strict=True)
         ]
         avg_margin = float(np.mean(margins))
         
@@ -306,7 +306,7 @@ async def simulate_undercut(request: SimIn) -> SimOut:
         
     except Exception as e:
         logger.error(f"Simulation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}") from e
 
 
 @app.get("/api/v1/models/status")

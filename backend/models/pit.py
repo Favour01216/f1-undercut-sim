@@ -130,7 +130,7 @@ class PitModel:
         
         return self
     
-    def sample(self, n: int = 1, rng: Optional[np.random.Generator] = None) -> Union[float, np.ndarray]:
+    def sample(self, n: int = 1, rng: Optional[np.random.Generator] = None) -> float | np.ndarray:
         """
         Generate random pit stop time loss samples.
         

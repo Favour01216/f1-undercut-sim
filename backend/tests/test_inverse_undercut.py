@@ -18,8 +18,11 @@ This validates the simulator's mathematical model and Monte Carlo simulation app
 
 import pytest
 import pandas as pd
+import logging
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
+
+logger = logging.getLogger(__name__)
 
 import sys
 import os
@@ -107,14 +110,14 @@ class TestInverseUndercut:
             assert key in data, f"Missing key: {key}"
         
         # Log the results for debugging
-        print(f"\n🏎️  Undercut Simulation Results:")
-        print(f"   Gap: {data['assumptions']['current_gap_s']}s")
-        print(f"   Undercut Probability: {data['p_undercut']:.2%}")
-        print(f"   Pit Loss: {data['pitLoss_s']:.1f}s")
-        print(f"   Outlap Delta: {data['outLapDelta_s']:.1f}s")
-        print(f"   Success Margin: {data['assumptions'].get('success_margin_s', 'N/A'):.1f}s")
-        print(f"   Models Fitted: {data['assumptions']['models_fitted']}")
-        print(f"   Avg Degradation: {data['assumptions']['avg_degradation_penalty_s']:.3f}s")
+        logger.info(f"Undercut Simulation Results:")
+        logger.info(f"   Gap: {data['assumptions']['current_gap_s']}s")
+        logger.info(f"   Undercut Probability: {data['p_undercut']:.2%}")
+        logger.info(f"   Pit Loss: {data['pitLoss_s']:.1f}s")
+        logger.info(f"   Outlap Delta: {data['outLapDelta_s']:.1f}s")
+        logger.info(f"   Success Margin: {data['assumptions'].get('success_margin_s', 'N/A'):.1f}s")
+        logger.info(f"   Models Fitted: {data['assumptions']['models_fitted']}")
+        logger.info(f"   Avg Degradation: {data['assumptions']['avg_degradation_penalty_s']:.3f}s")
         
         # Key assertion: With proper models fitted and favorable conditions, expect success
         # Logic: pit_loss + outlap_penalty < gap + degradation_penalty  
@@ -195,9 +198,9 @@ class TestInverseUndercut:
         
         data = response.json()
         
-        print(f"\n🏎️  Small Gap Undercut Results:")
-        print(f"   Gap: {mock_gap_calc.return_value}s") 
-        print(f"   Undercut Probability: {data['p_undercut']:.2%}")
+        logger.info(f"Small Gap Undercut Results:")
+        logger.info(f"   Gap: {mock_gap_calc.return_value}s") 
+        logger.info(f"   Undercut Probability: {data['p_undercut']:.2%}")
         
         # With a 5s gap vs ~25s pit loss, undercut should be very unlikely to succeed
         assert data["p_undercut"] < 0.2, (

@@ -99,7 +99,7 @@ class OutlapModel:
         self.fitted = True
         return self
     
-    def sample(self, compound: str, n: int = 1, rng: Optional[np.random.Generator] = None) -> Union[float, np.ndarray]:
+    def sample(self, compound: str, n: int = 1, rng: Optional[np.random.Generator] = None) -> float | np.ndarray:
         """
         Generate random outlap time penalty samples.
         
