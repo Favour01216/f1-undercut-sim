@@ -25,13 +25,21 @@ export interface SimulationResponse {
   pitLoss_s: number;
   outLapDelta_s: number;
   assumptions: {
-    gap_s: number;
-    tyre_age_b: number;
-    degradation_model: string;
-    pit_model: string;
-    outlap_model: string;
+    current_gap_s: number;
+    tire_age_driver_b: number;
+    models_fitted: {
+      deg_model: boolean;
+      pit_model: boolean;
+      outlap_model: boolean;
+    };
+    monte_carlo_samples: number;
+    avg_degradation_penalty_s: number;
+    pit_loss_range: [number, number];
+    outlap_delta_range: [number, number];
+    compound_used: string;
+    success_margin_s: number;
+    [key: string]: any;
   };
-  avgMargin_s?: number;
 }
 
 export interface BackendStatus {

@@ -1,24 +1,47 @@
-'use client'
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { SimulationResponse } from '@/types/simulation'
-import { PerformanceChart } from '@/components/performance-chart'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SimulationResponse } from "@/lib/api";
+import { PerformanceChart } from "@/components/performance-chart";
 
 interface SimulationResultsProps {
-  result: SimulationResponse
+  result: SimulationResponse;
 }
 
 export function SimulationResults({ result }: SimulationResultsProps) {
-  const probability = result.p_undercut
-  const probabilityPercent = (probability * 100).toFixed(1)
+  const probability = result.p_undercut;
+  const probabilityPercent = (probability * 100).toFixed(1);
 
   const getSuccessLevel = (prob: number) => {
-    if (prob >= 0.7) return { level: 'High', color: 'text-green-600', bg: 'bg-green-50', emoji: '✅' }
-    if (prob >= 0.4) return { level: 'Medium', color: 'text-yellow-600', bg: 'bg-yellow-50', emoji: '⚠️' }
-    return { level: 'Low', color: 'text-red-600', bg: 'bg-red-50', emoji: '❌' }
-  }
+    if (prob >= 0.7)
+      return {
+        level: "High",
+        color: "text-green-600",
+        bg: "bg-green-50",
+        emoji: "✅",
+      };
+    if (prob >= 0.4)
+      return {
+        level: "Medium",
+        color: "text-yellow-600",
+        bg: "bg-yellow-50",
+        emoji: "⚠️",
+      };
+    return {
+      level: "Low",
+      color: "text-red-600",
+      bg: "bg-red-50",
+      emoji: "❌",
+    };
+  };
 
-  const successLevel = getSuccessLevel(probability)
+  const successLevel = getSuccessLevel(probability);
 
   return (
     <div className="space-y-6">
@@ -29,7 +52,8 @@ export function SimulationResults({ result }: SimulationResultsProps) {
             🎯 Undercut Probability Result
           </CardTitle>
           <CardDescription>
-            Monte Carlo simulation with {result.assumptions.monte_carlo_samples.toLocaleString()} samples
+            Monte Carlo simulation with{" "}
+            {result.assumptions.monte_carlo_samples.toLocaleString()} samples
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -87,18 +111,24 @@ export function SimulationResults({ result }: SimulationResultsProps) {
             <div className="space-y-4">
               <div>
                 <p className="text-sm font-medium">Current Gap</p>
-                <p className="text-2xl font-bold">{result.assumptions.current_gap_s?.toFixed(2) || 'N/A'}s</p>
+                <p className="text-2xl font-bold">
+                  {result.assumptions.current_gap_s?.toFixed(2) || "N/A"}s
+                </p>
               </div>
-              
+
               <div>
                 <p className="text-sm font-medium">Driver B Tire Age</p>
-                <p className="text-lg">{result.assumptions.tire_age_driver_b || 'N/A'} laps</p>
+                <p className="text-lg">
+                  {result.assumptions.tire_age_driver_b || "N/A"} laps
+                </p>
               </div>
 
               {result.assumptions.avg_degradation_penalty_s && (
                 <div>
                   <p className="text-sm font-medium">Expected Degradation</p>
-                  <p className="text-lg">{result.assumptions.avg_degradation_penalty_s.toFixed(3)}s</p>
+                  <p className="text-lg">
+                    {result.assumptions.avg_degradation_penalty_s.toFixed(3)}s
+                  </p>
                 </div>
               )}
             </div>
@@ -108,15 +138,33 @@ export function SimulationResults({ result }: SimulationResultsProps) {
                 <p className="text-sm font-medium mb-2">Models Used</p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${result.assumptions.models_fitted.deg_model ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        result.assumptions.models_fitted.deg_model
+                          ? "bg-green-500"
+                          : "bg-red-500"
+                      }`}
+                    />
                     <span className="text-sm">Tire Degradation Model</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${result.assumptions.models_fitted.pit_model ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        result.assumptions.models_fitted.pit_model
+                          ? "bg-green-500"
+                          : "bg-red-500"
+                      }`}
+                    />
                     <span className="text-sm">Pit Stop Model</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${result.assumptions.models_fitted.outlap_model ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        result.assumptions.models_fitted.outlap_model
+                          ? "bg-green-500"
+                          : "bg-red-500"
+                      }`}
+                    />
                     <span className="text-sm">Outlap Performance Model</span>
                   </div>
                 </div>
@@ -125,7 +173,9 @@ export function SimulationResults({ result }: SimulationResultsProps) {
               {result.assumptions.success_margin_s && (
                 <div>
                   <p className="text-sm font-medium">Average Success Margin</p>
-                  <p className="text-lg">{result.assumptions.success_margin_s.toFixed(2)}s</p>
+                  <p className="text-lg">
+                    {result.assumptions.success_margin_s.toFixed(2)}s
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Positive = likely success, Negative = likely failure
                   </p>
@@ -150,44 +200,54 @@ export function SimulationResults({ result }: SimulationResultsProps) {
           <div className="space-y-4">
             {probability >= 0.7 && (
               <div className="p-4 bg-green-50 rounded-lg">
-                <p className="font-medium text-green-800">Excellent Undercut Opportunity! 🟢</p>
+                <p className="font-medium text-green-800">
+                  Excellent Undercut Opportunity! 🟢
+                </p>
                 <p className="text-sm text-green-700 mt-2">
-                  High probability of success. The gap, pit loss, and outlap penalty favor the undercutting driver. 
-                  This is an ideal time to pit.
+                  High probability of success. The gap, pit loss, and outlap
+                  penalty favor the undercutting driver. This is an ideal time
+                  to pit.
                 </p>
               </div>
             )}
 
             {probability >= 0.4 && probability < 0.7 && (
               <div className="p-4 bg-yellow-50 rounded-lg">
-                <p className="font-medium text-yellow-800">Risky but Possible Undercut 🟡</p>
+                <p className="font-medium text-yellow-800">
+                  Risky but Possible Undercut 🟡
+                </p>
                 <p className="text-sm text-yellow-700 mt-2">
-                  Moderate success probability. Consider track position, race situation, and alternative strategies. 
-                  The undercut could work but carries significant risk.
+                  Moderate success probability. Consider track position, race
+                  situation, and alternative strategies. The undercut could work
+                  but carries significant risk.
                 </p>
               </div>
             )}
 
             {probability < 0.4 && (
               <div className="p-4 bg-red-50 rounded-lg">
-                <p className="font-medium text-red-800">Undercut Likely to Fail 🔴</p>
+                <p className="font-medium text-red-800">
+                  Undercut Likely to Fail 🔴
+                </p>
                 <p className="text-sm text-red-700 mt-2">
-                  Low success probability. The current gap is likely too small, or the pit loss/outlap penalty 
-                  is too high. Consider staying out or looking for alternative strategies.
+                  Low success probability. The current gap is likely too small,
+                  or the pit loss/outlap penalty is too high. Consider staying
+                  out or looking for alternative strategies.
                 </p>
               </div>
             )}
 
             <div className="text-xs text-muted-foreground pt-4 border-t">
               <p>
-                <strong>Note:</strong> This simulation uses Monte Carlo methods with tire degradation, 
-                pit stop time, and outlap performance models. Results are probabilistic estimates 
-                based on historical data and current race conditions.
+                <strong>Note:</strong> This simulation uses Monte Carlo methods
+                with tire degradation, pit stop time, and outlap performance
+                models. Results are probabilistic estimates based on historical
+                data and current race conditions.
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

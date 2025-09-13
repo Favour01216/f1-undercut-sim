@@ -59,6 +59,7 @@ dependencies = [
     "pyarrow>=14.0.0,<18.0.0",
     "sentry-sdk[fastapi]>=1.40.0,<3.0.0",
     "structlog>=23.1.0,<25.0.0",
+    "cachetools>=5.3.0,<6.0.0",
 ]
 
 [project.optional-dependencies]

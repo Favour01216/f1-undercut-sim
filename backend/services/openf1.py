@@ -18,6 +18,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .tyre_age import compute_tyre_age
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -222,11 +224,23 @@ class OpenF1Client:
         # Find the race session for the specific GP
         race_session = None
         for session in sessions_data:
-            if (session.get("session_type") == "Race" and 
-                str(year) in str(session.get("year", "")) and
-                gp.lower().replace("-", " ") in session.get("session_name", "").lower()):
-                race_session = session
-                break
+            if session.get("session_type") == "Race" and str(year) in str(session.get("year", "")):
+                # Check multiple fields for GP matching
+                location = session.get("location", "").lower()
+                country_name = session.get("country_name", "").lower()
+                circuit_short_name = session.get("circuit_short_name", "").lower()
+                
+                gp_normalized = gp.lower().replace("-", " ")
+                
+                # Match against location, country, or circuit name
+                if (gp_normalized in location or 
+                    gp_normalized in country_name or 
+                    gp_normalized in circuit_short_name or
+                    location in gp_normalized or
+                    country_name in gp_normalized or
+                    circuit_short_name in gp_normalized):
+                    race_session = session
+                    break
         
         if not race_session:
             logger.warning(f"No race session found for {gp} {year}")
@@ -249,6 +263,9 @@ class OpenF1Client:
         
         # Filter out SC/VSC laps
         df = self._filter_sc_vsc_laps(df)
+        
+        # Add tire age computation using robust calculator
+        df = self._add_tire_age_robust(df, session_key)
         
         # Cache the results
         self._save_to_cache(df, cache_file)
@@ -282,11 +299,23 @@ class OpenF1Client:
         # Find the race session for the specific GP
         race_session = None
         for session in sessions_data:
-            if (session.get("session_type") == "Race" and 
-                str(year) in str(session.get("year", "")) and
-                gp.lower().replace("-", " ") in session.get("session_name", "").lower()):
-                race_session = session
-                break
+            if session.get("session_type") == "Race" and str(year) in str(session.get("year", "")):
+                # Check multiple fields for GP matching
+                location = session.get("location", "").lower()
+                country_name = session.get("country_name", "").lower()
+                circuit_short_name = session.get("circuit_short_name", "").lower()
+                
+                gp_normalized = gp.lower().replace("-", " ")
+                
+                # Match against location, country, or circuit name
+                if (gp_normalized in location or 
+                    gp_normalized in country_name or 
+                    gp_normalized in circuit_short_name or
+                    location in gp_normalized or
+                    country_name in gp_normalized or
+                    circuit_short_name in gp_normalized):
+                    race_session = session
+                    break
         
         if not race_session:
             logger.warning(f"No race session found for {gp} {year}")
@@ -309,6 +338,96 @@ class OpenF1Client:
         
         # Cache the results
         self._save_to_cache(df, cache_file)
+        
+        return df
+    
+    def _add_tire_age_robust(self, laps_df: pd.DataFrame, session_key: str) -> pd.DataFrame:
+        """
+        Add tire age column using the robust TyreAgeCalculator.
+        
+        Args:
+            laps_df: DataFrame with lap data
+            session_key: Session key to get pit events for
+            
+        Returns:
+            DataFrame with added 'tyre_age' column
+        """
+        if laps_df.empty:
+            return laps_df
+        
+        # Get pit stop data directly from API using session_key
+        try:
+            pit_data = self._make_request("pit", {"session_key": session_key})
+            pit_events_df = pd.DataFrame(pit_data) if pit_data else pd.DataFrame()
+        except Exception as e:
+            logger.warning(f"Failed to get pit data for tire age calculation: {e}")
+            pit_events_df = pd.DataFrame()
+        
+        # Use the robust tire age calculator
+        try:
+            result_df = compute_tyre_age(laps_df, pit_events_df)
+            logger.info(f"Computed tire ages for {len(result_df)} laps using robust calculator")
+            return result_df
+        except Exception as e:
+            logger.error(f"Robust tire age calculation failed: {e}")
+            # Fallback to simple calculation
+            return self._add_tire_age_fallback(laps_df, pit_events_df)
+    
+    def _add_tire_age_fallback(self, laps_df: pd.DataFrame, pit_events_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fallback tire age calculation for when the robust calculator fails.
+        
+        Args:
+            laps_df: DataFrame with lap data
+            pit_events_df: DataFrame with pit events
+            
+        Returns:
+            DataFrame with added 'tyre_age' column
+        """
+        df = laps_df.copy()
+        df['tyre_age'] = 0  # Use 0-based indexing to match robust calculator
+        
+        if pit_events_df.empty:
+            # No pit data - assume all laps are on original tires
+            for driver in df['driver_number'].unique():
+                driver_mask = df['driver_number'] == driver
+                driver_laps = df[driver_mask].sort_values('lap_number')
+                df.loc[driver_mask, 'tyre_age'] = range(len(driver_laps))
+            return df
+        
+        # For each driver, compute tire age based on pit stops
+        for driver in df['driver_number'].unique():
+            driver_mask = df['driver_number'] == driver
+            driver_laps = df[driver_mask].sort_values('lap_number')
+            
+            # Get pit stops for this driver
+            driver_pits = pit_events_df[pit_events_df['driver_number'] == driver]['lap_number'].tolist()
+            driver_pits.sort()
+            
+            # Compute tire age for each lap
+            tire_ages = []
+            current_stint_start = driver_laps['lap_number'].iloc[0] if len(driver_laps) > 0 else 1
+            
+            for lap_num in driver_laps['lap_number']:
+                # Check if there's a pit stop at or before this lap
+                recent_pit = None
+                for pit_lap in driver_pits:
+                    if pit_lap <= lap_num:
+                        recent_pit = pit_lap
+                    else:
+                        break
+                
+                if recent_pit is not None and recent_pit >= current_stint_start:
+                    # Tire age starts from 0 after pit stop
+                    current_stint_start = recent_pit
+                    tire_age = lap_num - current_stint_start
+                else:
+                    tire_age = lap_num - current_stint_start
+                
+                tire_ages.append(max(0, tire_age))  # Ensure at least 0
+            
+            # Update the dataframe
+            df.loc[driver_mask, 'tyre_age'] = tire_ages
         
         return df
     

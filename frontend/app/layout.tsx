@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/toaster";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorLoggingProvider } from "@/components/ErrorLoggingProvider";
+import { ReactQueryProvider } from "@/components/ReactQueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -51,15 +52,17 @@ export default function RootLayout({
         <link rel="icon" type="image/png" href="/favicon.png" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ErrorLoggingProvider>
-          <ErrorBoundary>
-            <ToastProvider>
-              <div id="root" className="min-h-screen">
-                {children}
-              </div>
-            </ToastProvider>
-          </ErrorBoundary>
-        </ErrorLoggingProvider>
+        <ReactQueryProvider>
+          <ErrorLoggingProvider>
+            <ErrorBoundary>
+              <ToastProvider>
+                <div id="root" className="min-h-screen">
+                  {children}
+                </div>
+              </ToastProvider>
+            </ErrorBoundary>
+          </ErrorLoggingProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );

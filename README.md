@@ -10,6 +10,69 @@
 
 The F1 Undercut Simulator revolutionizes pit strategy analysis by providing data-driven insights into one of Formula 1's most critical tactical decisions. By leveraging machine learning models trained on real F1 data, this tool calculates undercut probabilities with unprecedented accuracy, helping teams and fans understand the complex mathematics behind successful pit strategies. The system integrates tire degradation physics, pit stop variability, and cold tire performance penalties into a unified Monte Carlo simulation framework.
 
+## 🤖 Data-Driven Modeling Architecture
+
+### Enhanced Statistical Models
+
+The simulator employs sophisticated **data-driven models** that learn circuit and compound-specific parameters from historical F1 data, eliminating hard-coded assumptions and providing more accurate predictions.
+
+#### **DegModel - Advanced Tire Degradation**
+
+- **Method**: Robust quadratic regression with Huber loss
+- **Features**: Circuit and compound-specific learning
+- **Model**: `lap_delta = a*age² + b*age + c` with outlier resistance
+- **Validation**: K-fold cross-validation for reliability assessment
+- **Fallback Hierarchy**: Circuit+compound → compound → global models
+
+```python
+# Circuit-specific model for Monaco with soft tires
+model = DegModel(circuit='MONACO', compound='SOFT')
+model.fit_from_data(monaco_lap_data)
+
+# Get fresh tire advantage (data-driven, no hard-coded bonuses)
+advantage = model.get_fresh_tire_advantage(old_age=15, new_age=2)
+# Returns: e.g., 3.2 seconds advantage for Monaco soft tires
+```
+
+#### **OutlapModel - Learned Cold Tire Penalties**
+
+- **Method**: Statistical analysis of outlap vs warmed lap performance
+- **Features**: Circuit and compound-specific penalty distributions
+- **Learning**: Analyzes stint lap 1 (outlap) vs laps 3+ (warmed)
+- **Output**: Learned penalty distributions, not fixed values
+
+```python
+# Learn circuit-specific outlap penalties
+model = OutlapModel(circuit='SPA', compound='MEDIUM')
+model.fit_from_data(spa_outlap_data)
+
+# Sample realistic penalties based on learned data
+penalty = model.sample(n=1)  # e.g., 1.8s for Spa medium tires
+```
+
+#### **ModelParametersManager - Intelligent Parameter Persistence**
+
+- **Storage**: Parquet files in `features/model_params/`
+- **Scope Hierarchy**: Circuit+compound specific → compound-only → global
+- **Schema**: Structured dataclasses for degradation and outlap parameters
+- **Fallback**: Automatic fallback to broader scopes when specific data unavailable
+
+```python
+# Automatic parameter loading with intelligent fallback
+manager = ModelParametersManager()
+
+# Try: Monaco + SOFT → SOFT only → Global → Default
+params = manager.get_degradation_params(circuit='MONACO', compound='SOFT')
+```
+
+### **Elimination of Hard-Coded Biases**
+
+✅ **Removed**: Fixed compound bonuses (`{'SOFT': 1.5, 'MEDIUM': 0.5, 'HARD': 0.0}`)  
+✅ **Removed**: Arbitrary base advantages (`base_advantage = 3.0`)  
+✅ **Removed**: Static outlap penalties (`{'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}`)
+
+✨ **Replaced With**: Circuit and compound-specific parameters learned from real F1 data using robust statistical methods.
+
 ## 🚀 Quickstart
 
 ### ⚡ Quick Setup & Run
@@ -55,17 +118,55 @@ pnpm run dev
 
 ### Statistical Models
 
-#### DegModel (Tire Degradation)
+### Enhanced Statistical Models
 
-- **Method**: Quadratic regression fitting
-- **Formula**: `lap_delta = a*age² + b*age + c`
-- **Validation**: R² > 0.7, minimum 5 data points
-- **Output**: Predicted lap time delta for given tire age
+#### DegModel (Enhanced Tire Degradation)
+
+- **Method**: Robust quadratic regression with Huber loss and iterative reweighting
+- **Features**: Circuit and compound-specific parameter learning
+- **Model**: `lap_delta = a*age² + b*age + c` with k-fold cross-validation
+- **Persistence**: Learned parameters saved to parquet files with intelligent fallback
+- **Validation**: R² scoring, RMSE calculation, outlier resistance
 
 ```python
-model = DegModel()
-model.fit(lap_data)  # Fits quadratic degradation curve
-delta = model.predict(tire_age=15)  # Returns time loss in seconds
+# Enhanced model with circuit/compound specificity
+model = DegModel(circuit='MONACO', compound='SOFT')
+model.fit_from_data(lap_data)  # Learns Monaco-specific soft tire behavior
+
+# Get data-driven tire advantages (no hard-coded bonuses)
+advantage = model.get_fresh_tire_advantage(old_age=15, new_age=2)
+delta = model.predict(tire_age=15)  # Circuit-specific degradation prediction
+```
+
+#### PitModel (Pit Stop Times)
+
+- **Method**: Normal distribution fitting
+- **Parameters**: Mean and standard deviation of pit losses
+- **Validation**: Minimum 5 pit stops, outlier detection
+- **Output**: Random pit loss samples from fitted distribution
+
+```python
+model = PitModel()
+model.fit(pit_data)  # Fits normal distribution
+losses = model.sample(n=1000, rng=rng)  # Monte Carlo sampling
+```
+
+#### OutlapModel (Enhanced Cold Tire Performance)
+
+- **Method**: Circuit and compound-specific penalty learning
+- **Features**: Learned distributions from real outlap analysis
+- **Validation**: Separate outlap (stint lap 1) vs warmed laps (lap 3+)
+- **Persistence**: Stored parameters with hierarchical fallback system
+- **Output**: Data-driven penalty samples, not fixed values
+
+```python
+# Enhanced model with circuit/compound learning
+model = OutlapModel(circuit='SPA', compound='MEDIUM')
+model.fit_from_data(lap_data)  # Learns Spa-specific medium tire outlaps
+
+# Sample from learned penalty distribution
+penalty = model.sample(n=1000, rng=rng)  # Real data-driven penalties
+expected = model.get_expected_penalty()  # Mean penalty for this context
 ```
 
 #### PitModel (Pit Stop Times)
@@ -94,25 +195,44 @@ model.fit(lap_data)  # Analyzes outlap vs warmed performance
 penalty = model.sample('SOFT', n=1000, rng=rng)  # Samples cold tire penalties
 ```
 
-### Monte Carlo Simulation
+### Enhanced Monte Carlo Simulation
 
-The undercut probability calculation uses Monte Carlo simulation with deterministic seeding:
+The undercut probability calculation uses **data-driven Monte Carlo simulation** with deterministic seeding and circuit-specific models:
 
 ```python
 # Deterministic RNG for reproducible results
 rng = np.random.default_rng(seed=42)
 
+# Enhanced models with circuit/compound specificity
+circuit_deg_model = DegModel(circuit=circuit, compound=compound_a)
+circuit_outlap_model = OutlapModel(circuit=circuit, compound=compound_a)
+
 # For each simulation iteration (default: 1000)
 pit_loss = PitModel.sample(rng=rng)
-outlap_penalty = OutlapModel.sample(compound, rng=rng)
-stay_out_delta = DegModel.predict(current_tire_age + 1)
+
+# Data-driven outlap penalty (learned from real data)
+outlap_penalty = circuit_outlap_model.sample(rng=rng)
+
+# Circuit-specific tire degradation (no hard-coded bonuses)
+fresh_advantage = circuit_deg_model.get_fresh_tire_advantage(
+    old_age=current_tire_age + lap,
+    new_age=1.0 + lap
+)
 
 # Undercut succeeds if:
-undercut_success = (current_gap + pit_loss + outlap_penalty) < stay_out_delta
+undercut_success = (current_gap + pit_loss + outlap_penalty) < fresh_advantage
 
-# Final probability
+# Final probability with confidence intervals
 p_undercut = (successful_undercuts / total_simulations) * 100
 ```
+
+**Key Enhancements:**
+
+- ✅ Circuit-specific degradation models
+- ✅ Compound-specific outlap penalties
+- ✅ Learned parameters from real F1 data
+- ✅ Intelligent fallback hierarchy
+- ✅ No hard-coded tire advantages
 
 ## 📊 Data Sources & Licenses
 
