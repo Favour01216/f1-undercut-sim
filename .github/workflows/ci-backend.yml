@@ -51,7 +51,7 @@ jobs:
       - name: Install dependencies
         run: |
           source .venv/bin/activate
-          uv pip install -r requirements.txt
+          uv pip install -r ../requirements.txt
 
       - name: Set test environment variables
         run: |
@@ -82,6 +82,9 @@ jobs:
 
   type-check:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,7 +101,6 @@ jobs:
           pip install mypy
 
       - name: Run type checking
-        working-directory: ./backend
         run: |
           # Add mypy or similar if needed
           echo "Type checking would go here"

@@ -10,17 +10,6 @@ jobs:
   ci-e2e:
     runs-on: ubuntu-latest
 
-    services:
-      # Backend service for API endpoints
-      backend:
-        image: python:3.11
-        ports:
-          - 8000:8000
-        options: >-
-          --health-cmd "curl -f http://localhost:8000/ || exit 1"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 3
 
     steps:
       - name: Checkout repository
@@ -50,11 +39,12 @@ jobs:
           # Set test environment variables
           export ENV=test
           export OPENF1_BASE_URL=http://localhost:9999
+          export RNG_SEED=42
           export LOG_LEVEL=WARNING
 
           # Start FastAPI server in background
           cd backend
-          python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
+          nohup python -m uvicorn app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
           echo $! > backend.pid
 
           # Wait for backend to be ready
@@ -65,6 +55,8 @@ jobs:
             timeout=$((timeout - 2))
             if [ $timeout -le 0 ]; then
               echo "Backend failed to start within 60 seconds"
+              echo "Backend logs:"
+              cat backend.log
               exit 1
             fi
           done

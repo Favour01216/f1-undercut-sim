@@ -9,6 +9,19 @@ const nextConfig = {
       },
     ]
   },
+  // Ensure TypeScript path resolution works in CI
+  typescript: {
+    // This will help with path resolution in CI
+    ignoreBuildErrors: false,
+  },
+  // Ensure webpack resolves paths correctly
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname),
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig
