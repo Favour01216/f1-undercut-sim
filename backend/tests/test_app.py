@@ -2,13 +2,13 @@
 Tests for FastAPI endpoints
 """
 
-import pytest
-from fastapi.testclient import TestClient
-import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from app import app
+import sys
 
+from fastapi.testclient import TestClient
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from app import app
 
 client = TestClient(app)
 
@@ -48,16 +48,16 @@ def test_simulate_endpoint_structure():
         "gp": "monaco",
         "year": 2024,
         "driver_a": "VER",
-        "driver_b": "HAM", 
+        "driver_b": "HAM",
         "compound_a": "SOFT",
         "lap_now": 25,
-        "samples": 100
+        "samples": 100,
     }
-    
+
     response = client.post("/simulate", json=request_body)
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check required keys exist
     assert "p_undercut" in data
     assert "pitLoss_s" in data
