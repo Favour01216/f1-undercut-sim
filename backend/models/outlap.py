@@ -118,6 +118,13 @@ class OutlapModel:
         if compound not in self.compound_models:
             raise ValueError(f"Compound '{compound}' not available")
         
+        if n < 0:
+            raise ValueError("Number of samples must be non-negative")
+            
+        # Handle edge case where n=0
+        if n == 0:
+            return np.array([])
+        
         model = self.compound_models[compound]
         
         # Sample from normal distribution with deterministic RNG

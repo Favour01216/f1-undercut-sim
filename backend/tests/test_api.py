@@ -39,7 +39,7 @@ def test_simulate_endpoint_success():
         "driver_b": "HAM",
         "compound_a": "SOFT",
         "lap_now": 25,
-        "samples": 100  # Use smaller sample for faster testing
+        "samples": 1000  # Use smaller sample for faster testing
     }
     
     response = client.post("/simulate", json=payload)
@@ -73,7 +73,7 @@ def test_simulate_endpoint_deterministic():
         "driver_b": "HAM",
         "compound_a": "SOFT",
         "lap_now": 25,
-        "samples": 100
+        "samples": 1000
     }
     
     # Make two identical requests
@@ -114,7 +114,7 @@ def test_simulate_endpoint_invalid_compound():
         "driver_b": "HAM",
         "compound_a": "INVALID",  # Invalid compound
         "lap_now": 25,
-        "samples": 10
+        "samples": 100
     }
     
     response = client.post("/simulate", json=payload)
@@ -134,7 +134,7 @@ def test_simulate_endpoint_edge_cases():
             "driver_b": "HAM", 
             "compound_a": compound,
             "lap_now": 30,
-            "samples": 50
+            "samples": 1000
         }
         
         response = client.post("/simulate", json=payload)
@@ -155,7 +155,7 @@ def test_simulate_endpoint_with_real_data():
         "driver_b": "LEC",
         "compound_a": "SOFT",
         "lap_now": 20,
-        "samples": 10
+        "samples": 100
     }
     
     # This test would actually call real APIs if not mocked

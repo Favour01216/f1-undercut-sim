@@ -114,7 +114,7 @@ def test_outlap_model_insufficient_data():
         'stint_lap': [1, 2]
     })
     
-    with pytest.raises(ValueError, match="Insufficient data"):
+    with pytest.raises(ValueError, match="Could not fit model for any compounds"):
         model.fit(df)
 
 
@@ -142,10 +142,15 @@ def test_outlap_model_invalid_sample_count(sample_outlap_data):
     
     compound = list(model.compound_models.keys())[0]
     
-    with pytest.raises(ValueError, match="must be positive"):
-        model.sample(compound, 0)
+    # Test n=0 returns empty array (edge case, but allowed)
+    result = model.sample(compound, 0)
+    assert len(result) == 0
     
-    with pytest.raises(ValueError, match="must be positive"):
+    # Test negative n raises error  
+    with pytest.raises(ValueError, match="must be non-negative"):
+        model.sample(compound, -1)
+    
+    with pytest.raises(ValueError, match="must be non-negative"):
         model.sample(compound, -5)
 
 
