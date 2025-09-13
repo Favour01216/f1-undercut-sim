@@ -62,6 +62,7 @@ jobs:
         pre-commit run --all-files || echo "Pre-commit issues found, continuing..."
 
     - name: Run unit tests with pytest
+      working-directory: ./backend
       run: |
         python -m pytest tests/ -v \
           --cov=models \
@@ -99,6 +100,7 @@ jobs:
         pip install mypy
 
     - name: Run type checking
+      working-directory: ./backend
       run: |
         # Add mypy or similar if needed
         echo "Type checking would go here"
