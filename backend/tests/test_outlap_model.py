@@ -5,7 +5,7 @@ Tests for OutlapModel (Outlap Performance Model)
 import pytest
 import numpy as np
 import pandas as pd
-from models.outlap import OutlapModel
+from backend.models.outlap import OutlapModel
 
 
 @pytest.fixture

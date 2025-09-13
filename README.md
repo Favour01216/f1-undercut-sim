@@ -48,6 +48,61 @@ pnpm run dev
 - **📚 API Documentation**: http://localhost:8000/docs
 - **❤️ Health Check**: http://localhost:8000/health
 
+## 🧪 Running Tests Like CI
+
+To reproduce the CI test behavior locally, use the provided Makefile commands:
+
+```bash
+# Run backend unit tests (excludes integration tests)
+make test-backend
+
+# Run frontend lint, typecheck, and build
+make test-frontend
+
+# Run end-to-end tests (optional, not gating)
+make e2e
+```
+
+### Manual Test Commands
+
+**Backend Tests:**
+```bash
+# Run all backend unit tests
+pytest -m "not integration" --cov=backend --cov-report=term-missing
+
+# Run specific test files
+pytest backend/tests/test_api.py -v
+
+# Run with coverage
+pytest --cov=backend --cov-report=html
+```
+
+**Frontend Tests:**
+```bash
+cd frontend
+
+# Lint code
+pnpm run lint
+
+# Type checking
+pnpm run typecheck
+
+# Build application
+pnpm run build
+
+# Run e2e tests
+pnpm run e2e
+```
+
+**Pre-commit Checks:**
+```bash
+# Run all pre-commit hooks
+pre-commit run --all-files
+
+# Install pre-commit hooks
+pre-commit install
+```
+
 ## 🔬 Methods & Validation
 
 ### Statistical Models

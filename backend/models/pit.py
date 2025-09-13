@@ -150,11 +150,12 @@ class PitModel:
         if n <= 0:
             raise ValueError("Number of samples must be positive")
         
+        # Use provided RNG or create deterministic default
+        if rng is None:
+            rng = np.random.default_rng(42)
+        
         # Sample from normal distribution with deterministic RNG
-        if rng is not None:
-            samples = rng.normal(self.mean_loss, self.std_loss, size=n)
-        else:
-            samples = self.distribution.rvs(size=n)
+        samples = rng.normal(self.mean_loss, self.std_loss, size=n)
         
         # Ensure reasonable bounds for F1 pit stops
         samples = np.clip(samples, 10.0, 60.0)

@@ -21,7 +21,7 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
-from app import app
+from backend.app import app
 
 client = TestClient(app)
 
@@ -29,9 +29,9 @@ client = TestClient(app)
 class TestInverseUndercut:
     """Test suite for successful undercut scenarios."""
     
-    @patch('services.openf1.OpenF1Client.get_pit_events')
-    @patch('services.openf1.OpenF1Client.get_laps') 
-    @patch('app.calculate_driver_gap')
+    @patch('backend.services.openf1.OpenF1Client.get_pit_events')
+    @patch('backend.services.openf1.OpenF1Client.get_laps') 
+    @patch('backend.app.calculate_driver_gap')
     def test_successful_undercut_small_gap(
         self, 
         mock_gap_calc,
@@ -134,9 +134,9 @@ class TestInverseUndercut:
         mock_get_laps.assert_called_once_with("monaco", 2024)
         mock_get_pit_events.assert_called_once_with("monaco", 2024)
     
-    @patch('services.openf1.OpenF1Client.get_pit_events')
-    @patch('services.openf1.OpenF1Client.get_laps')
-    @patch('app.calculate_driver_gap') 
+    @patch('backend.services.openf1.OpenF1Client.get_pit_events')
+    @patch('backend.services.openf1.OpenF1Client.get_laps')
+    @patch('backend.app.calculate_driver_gap') 
     def test_unsuccessful_undercut_small_gap(
         self,
         mock_gap_calc, 

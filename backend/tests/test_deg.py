@@ -5,7 +5,7 @@ Tests for DegModel (Tire Degradation Model)
 import pytest
 import numpy as np
 import pandas as pd
-from models.deg import DegModel
+from backend.models.deg import DegModel
 
 
 def test_deg_model_fit_predict(sample_lap_data, deterministic_rng):

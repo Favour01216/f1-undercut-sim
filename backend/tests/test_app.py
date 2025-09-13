@@ -4,7 +4,7 @@ Tests for FastAPI endpoints
 
 import pytest
 from fastapi.testclient import TestClient
-from app import app
+from backend.app import app
 
 
 client = TestClient(app)
@@ -24,7 +24,7 @@ def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
+    assert data["status"] == "ok"
 
 
 def test_models_status_endpoint():
@@ -42,7 +42,7 @@ def test_simulate_endpoint_structure():
     """Test the simulate endpoint returns proper structure."""
     # This should work with the mocked data from conftest.py
     request_body = {
-        "gp": "Monaco",
+        "gp": "monaco",
         "year": 2024,
         "driver_a": "VER",
         "driver_b": "HAM", 

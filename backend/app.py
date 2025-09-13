@@ -16,11 +16,11 @@ import numpy as np
 from typing import Dict, Any, Optional, Literal
 
 # Import our new modeling classes and API clients
-from models.deg import DegModel
-from models.pit import PitModel  
-from models.outlap import OutlapModel
-from services.openf1 import OpenF1Client
-from services.jolpica import JolpicaClient
+from .models.deg import DegModel
+from .models.pit import PitModel  
+from .models.outlap import OutlapModel
+from .services.openf1 import OpenF1Client
+from .services.jolpica import JolpicaClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -219,7 +219,7 @@ async def simulate_undercut(request: SimIn) -> SimOut:
         }
         
         # Monte Carlo simulation with deterministic RNG
-        rng = np.random.default_rng(42)  # Deterministic seed for reproducible results
+        rng = np.random.default_rng(int(os.getenv("RNG_SEED", "42")))
         successes = 0
         pit_losses = []
         outlap_deltas = []

@@ -4,7 +4,7 @@ Tests for FastAPI endpoints with comprehensive validation testing
 
 import pytest
 from fastapi.testclient import TestClient
-from app import app
+from backend.app import app
 
 
 client = TestClient(app)

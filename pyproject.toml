@@ -19,14 +19,16 @@ target-version = ["py311"]
 markers = [
     "integration: tests that hit real services"
 ]
-testpaths = ["tests"]
+testpaths = ["backend/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
+    "-q",
+    "--maxfail=1",
+    "--disable-warnings",
     "--strict-markers",
-    "--strict-config",
-    "-ra"
+    "--strict-config"
 ]
 
 [project]

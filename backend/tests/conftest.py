@@ -114,13 +114,30 @@ def sample_outlap_data():
 
 
 @pytest.fixture(autouse=True)
+def prevent_network_calls():
+    """Prevent any network calls in unit tests unless marked as integration."""
+    import requests
+    import httpx
+    
+    def raise_network_error(*args, **kwargs):
+        raise RuntimeError("Network calls are not allowed in unit tests. Use @pytest.mark.integration for tests that need real API calls.")
+    
+    # Patch common HTTP libraries
+    with patch('requests.get', side_effect=raise_network_error), \
+         patch('requests.post', side_effect=raise_network_error), \
+         patch('httpx.get', side_effect=raise_network_error), \
+         patch('httpx.post', side_effect=raise_network_error):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def mock_api_calls():
     """Mock all external API calls to return static data."""
     # Mock OpenF1 API calls
-    with patch('services.openf1.OpenF1Client.get_laps') as mock_get_laps, \
-         patch('services.openf1.OpenF1Client.get_pit_events') as mock_get_pit_events, \
-         patch('services.jolpica.JolpicaClient.get_results') as mock_get_results, \
-         patch('services.jolpica.JolpicaClient.get_schedule') as mock_get_schedule:
+    with patch('backend.services.openf1.OpenF1Client.get_laps') as mock_get_laps, \
+         patch('backend.services.openf1.OpenF1Client.get_pit_events') as mock_get_pit_events, \
+         patch('backend.services.jolpica.JolpicaClient.get_results') as mock_get_results, \
+         patch('backend.services.jolpica.JolpicaClient.get_schedule') as mock_get_schedule:
         
         # Return empty DataFrames by default (can be overridden in specific tests)
         mock_get_laps.return_value = pd.DataFrame()

@@ -127,11 +127,12 @@ class OutlapModel:
         
         model = self.compound_models[compound]
         
+        # Use provided RNG or create deterministic default
+        if rng is None:
+            rng = np.random.default_rng(42)
+        
         # Sample from normal distribution with deterministic RNG
-        if rng is not None:
-            samples = rng.normal(model['mean_penalty'], model['std_penalty'], size=n)
-        else:
-            samples = np.random.normal(model['mean_penalty'], model['std_penalty'], size=n)
+        samples = rng.normal(model['mean_penalty'], model['std_penalty'], size=n)
         
         # Ensure reasonable bounds
         samples = np.clip(samples, 0.0, 5.0)
