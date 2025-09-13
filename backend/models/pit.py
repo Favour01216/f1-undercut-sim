@@ -7,7 +7,7 @@ Fits a normal distribution and provides sampling for Monte Carlo simulations.
 
 import numpy as np
 import pandas as pd
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 import logging
 from scipy import stats
 
@@ -82,7 +82,9 @@ class PitModel:
             
             # Add typical overhead for pit stops (entry/exit, tire change delay)
             # Typical F1 pit stop: ~20-25s stationary + ~5-8s track time loss
-            time_losses = pit_durations + np.random.normal(7, 2, len(pit_durations))
+            # Use deterministic seed for reproducible estimates
+            rng = np.random.default_rng(42)
+            time_losses = pit_durations + rng.normal(7, 2, len(pit_durations))
             data_source = "estimated_from_pit_duration"
         else:
             raise ValueError("Required columns not found in DataFrame")
@@ -128,12 +130,13 @@ class PitModel:
         
         return self
     
-    def sample(self, n: int = 1) -> np.ndarray:
+    def sample(self, n: int = 1, rng: Optional[np.random.Generator] = None) -> Union[float, np.ndarray]:
         """
         Generate random pit stop time loss samples.
         
         Args:
             n: Number of samples to generate
+            rng: Random number generator for reproducible results (default: None)
             
         Returns:
             Array of pit stop time losses in seconds
@@ -147,8 +150,11 @@ class PitModel:
         if n <= 0:
             raise ValueError("Number of samples must be positive")
         
-        # Sample from normal distribution
-        samples = self.distribution.rvs(size=n)
+        # Sample from normal distribution with deterministic RNG
+        if rng is not None:
+            samples = rng.normal(self.mean_loss, self.std_loss, size=n)
+        else:
+            samples = self.distribution.rvs(size=n)
         
         # Ensure reasonable bounds for F1 pit stops
         samples = np.clip(samples, 10.0, 60.0)

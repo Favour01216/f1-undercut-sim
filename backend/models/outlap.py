@@ -7,7 +7,7 @@ accounting for cold tire penalties by compound type.
 
 import numpy as np
 import pandas as pd
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 import logging
 from scipy import stats
 from collections import defaultdict
@@ -99,13 +99,14 @@ class OutlapModel:
         self.fitted = True
         return self
     
-    def sample(self, compound: str, n: int = 1) -> np.ndarray:
+    def sample(self, compound: str, n: int = 1, rng: Optional[np.random.Generator] = None) -> Union[float, np.ndarray]:
         """
         Generate random outlap time penalty samples.
         
         Args:
             compound: Tire compound ('SOFT', 'MEDIUM', 'HARD')
             n: Number of samples
+            rng: Random number generator for reproducible results (default: None)
             
         Returns:
             Array of outlap penalties in seconds
@@ -118,11 +119,12 @@ class OutlapModel:
             raise ValueError(f"Compound '{compound}' not available")
         
         model = self.compound_models[compound]
-        samples = np.random.normal(
-            model['mean_penalty'], 
-            model['std_penalty'], 
-            n
-        )
+        
+        # Sample from normal distribution with deterministic RNG
+        if rng is not None:
+            samples = rng.normal(model['mean_penalty'], model['std_penalty'], size=n)
+        else:
+            samples = np.random.normal(model['mean_penalty'], model['std_penalty'], size=n)
         
         # Ensure reasonable bounds
         samples = np.clip(samples, 0.0, 5.0)
