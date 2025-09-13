@@ -6,14 +6,22 @@ It provides APIs for tire degradation analysis, pit stop optimization,
 and undercut simulation with probability calculations.
 """
 
-from fastapi import FastAPI, HTTPException
+import os
+import time
+import numpy as np
+from typing import Dict, Any, Optional
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
-import os
-import logging
-import numpy as np
-from typing import Dict, Any, Optional
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+
+# Import our logging configuration and middleware
+from logging_config import configure_logging, get_logger
+from middleware import RequestMiddleware, hash_simulation_inputs, round_simulation_outputs
 
 # Import our new modeling classes and API clients
 from models.deg import DegModel
@@ -22,9 +30,28 @@ from models.outlap import OutlapModel
 from services.openf1 import OpenF1Client
 from services.jolpica import JolpicaClient
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure logging first
+configure_logging()
+logger = get_logger(__name__)
+
+# Initialize Sentry if DSN is provided
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[
+            FastApiIntegration(auto_enabling_integrations=False),
+            StarletteIntegration(auto_enabling_integrations=False),
+        ],
+        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.1")),
+        attach_stacktrace=True,
+        send_default_pii=False,  # Don't send PII by default
+    )
+    logger.info("Sentry initialized", environment=os.getenv("SENTRY_ENVIRONMENT", "development"))
+else:
+    logger.info("Sentry not configured - no SENTRY_DSN provided")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -45,6 +72,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add request middleware for logging and request IDs
+app.add_middleware(RequestMiddleware)
 
 # Initialize API clients
 openf1_client = OpenF1Client()
@@ -165,15 +195,30 @@ def calculate_driver_gap(gp: str, year: int, driver_a: str, driver_b: str, lap_n
 
 
 @app.post("/simulate", response_model=SimulateResponse)
-async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
+async def simulate_undercut(request: SimulateRequest, req: Request) -> SimulateResponse:
     """
     Simulate undercut probability between two drivers.
     
     This endpoint calculates the probability that driver_a can successfully 
     undercut driver_b by pitting now while driver_b stays out one more lap.
     """
+    # Start timing for detailed logging
+    start_time = time.time()
+    
+    # Hash inputs for privacy-safe logging
+    request_dict = request.dict()
+    input_hash = hash_simulation_inputs(request_dict)
+    
     try:
-        logger.info(f"Simulating undercut: {request.driver_a} vs {request.driver_b} at {request.gp} {request.year}")
+        logger.info(
+            "Starting undercut simulation",
+            gp=request.gp,
+            year=request.year,
+            compound=request.compound_a,
+            lap=request.lap_now,
+            samples=request.samples,
+            input_hash=input_hash
+        )
         
         # Get fitted models for this GP/year
         models = get_or_fit_models(request.gp, request.year)
@@ -267,17 +312,51 @@ async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
             ]))
         })
         
-        logger.info(f"Simulation complete: P(undercut) = {p_undercut:.1%}")
-        
-        return SimulateResponse(
+        # Create response
+        response_data = SimulateResponse(
             p_undercut=p_undercut,
             pitLoss_s=float(avg_pit_loss),
             outLapDelta_s=float(avg_outlap_delta),
             assumptions=assumptions
         )
         
+        # Calculate timing
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        
+        # Log successful simulation with rounded outputs for privacy
+        rounded_response = round_simulation_outputs(response_data.dict())
+        logger.info(
+            "Simulation completed successfully",
+            input_hash=input_hash,
+            duration_ms=duration_ms,
+            p_undercut=rounded_response["p_undercut"],
+            pit_loss_s=rounded_response["pitLoss_s"],
+            outlap_delta_s=rounded_response["outLapDelta_s"],
+            models_used={
+                "deg": models['deg'] is not None,
+                "pit": models['pit'] is not None,
+                "outlap": models['outlap'] is not None
+            }
+        )
+        
+        return response_data
+        
     except Exception as e:
-        logger.error(f"Simulation failed: {e}")
+        # Calculate timing for failed requests
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        
+        logger.error(
+            "Simulation failed",
+            input_hash=input_hash,
+            duration_ms=duration_ms,
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        
+        # Report to Sentry if configured
+        if sentry_dsn:
+            sentry_sdk.capture_exception(e)
+        
         raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
 
 

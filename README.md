@@ -15,6 +15,7 @@ The F1 Undercut Simulator revolutionizes pit strategy analysis by providing data
 ### ⚡ Quick Setup & Run
 
 **1. Backend (FastAPI + Python)**
+
 ```bash
 # Clone repository
 git clone https://github.com/Favour01216/f1-undercut-sim.git
@@ -33,6 +34,7 @@ python app.py
 ```
 
 **2. Frontend (Next.js + TypeScript)**
+
 ```bash
 # Install Node.js dependencies
 cd frontend
@@ -44,6 +46,7 @@ pnpm run dev
 ```
 
 **3. Access the Application**
+
 - **🌐 Web Interface**: http://localhost:3000
 - **📚 API Documentation**: http://localhost:8000/docs
 - **❤️ Health Check**: http://localhost:8000/health
@@ -53,6 +56,7 @@ pnpm run dev
 ### Statistical Models
 
 #### DegModel (Tire Degradation)
+
 - **Method**: Quadratic regression fitting
 - **Formula**: `lap_delta = a*age² + b*age + c`
 - **Validation**: R² > 0.7, minimum 5 data points
@@ -65,6 +69,7 @@ delta = model.predict(tire_age=15)  # Returns time loss in seconds
 ```
 
 #### PitModel (Pit Stop Times)
+
 - **Method**: Normal distribution fitting
 - **Parameters**: Mean and standard deviation of pit losses
 - **Validation**: Minimum 5 pit stops, outlier detection
@@ -77,6 +82,7 @@ losses = model.sample(n=1000, rng=rng)  # Monte Carlo sampling
 ```
 
 #### OutlapModel (Cold Tire Performance)
+
 - **Method**: Compound-specific penalty modeling
 - **Compounds**: SOFT, MEDIUM, HARD tire analysis
 - **Validation**: Separate outlap (stint lap 1) vs warmed laps
@@ -111,6 +117,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 ## 📊 Data Sources & Licenses
 
 ### OpenF1 API
+
 - **Purpose**: Live timing, telemetry, and session data
 - **Website**: [openf1.org](https://openf1.org/)
 - **License**: Public API, fair use terms
@@ -118,6 +125,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 - **Rate Limits**: Respectful usage with caching and retry logic
 
 ### Jolpica F1 API (Ergast)
+
 - **Purpose**: Historical race results and schedule data
 - **Website**: [ergast.com/mrd](http://ergast.com/mrd/)
 - **License**: Creative Commons Attribution-NonCommercial-ShareAlike
@@ -125,6 +133,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 - **Historical**: Complete F1 data from 1950 to present
 
 ### FastF1 (Optional Enhancement)
+
 - **Purpose**: Advanced telemetry analysis
 - **Website**: [docs.fastf1.dev](https://docs.fastf1.dev/)
 - **License**: MIT License
@@ -136,6 +145,7 @@ p_undercut = (successful_undercuts / total_simulations) * 100
 ### Running Tests
 
 **Backend Tests**
+
 ```bash
 cd backend
 
@@ -153,6 +163,7 @@ python -m pytest tests/ -v -m "integration"
 ```
 
 **Frontend Tests**
+
 ```bash
 cd frontend
 
@@ -169,11 +180,13 @@ pnpm run build
 ### Development Setup
 
 **Prerequisites:**
+
 - Python 3.11+
 - Node.js 20+
 - pnpm 9+
 
 **Environment Setup:**
+
 ```bash
 # Copy environment template
 cp .env.example .env
@@ -188,6 +201,7 @@ pre-commit install
 ### Code Quality
 
 All code is automatically formatted and linted using:
+
 - **Ruff**: Fast Python linter and formatter (line-length: 100)
 - **Black**: Python code formatter (fallback)
 - **ESLint**: JavaScript/TypeScript linting
@@ -198,6 +212,7 @@ All code is automatically formatted and linted using:
 ### GitHub Actions Workflows
 
 **Backend CI** (`.github/workflows/ci-backend.yml`):
+
 - Python 3.11 testing
 - Pre-commit hook validation
 - Unit tests with 80% coverage requirement
@@ -205,21 +220,134 @@ All code is automatically formatted and linted using:
 - Type checking
 
 **Frontend CI** (`.github/workflows/ci-frontend.yml`):
+
 - Node.js 20 with pnpm
 - TypeScript compilation
-- ESLint validation  
+- ESLint validation
 - Build verification
 - Bundle size analysis
 
 ### Branch Protection
 
 **Required Status Checks:**
+
 - `ci-backend` must pass
 - `ci-frontend` must pass
 - All tests deterministic (no network calls in unit tests)
 - 80%+ test coverage
 
-## 📦 Project Structure
+## � Monitoring & Observability
+
+### Error Tracking with Sentry
+
+This application includes comprehensive error tracking and performance monitoring using [Sentry](https://sentry.io/).
+
+#### Backend Configuration
+
+Set the following environment variables for the FastAPI backend:
+
+```bash
+# Required: Sentry DSN for error tracking
+SENTRY_DSN=https://your-dsn@o12345.ingest.sentry.io/67890
+
+# Optional: Environment name (default: development)
+SENTRY_ENVIRONMENT=production
+
+# Optional: Performance monitoring sample rates (default: 0.1)
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0.1
+
+# Optional: Logging level (default: INFO)
+LOG_LEVEL=INFO
+```
+
+#### Frontend Configuration
+
+Set the following environment variables for the Next.js frontend:
+
+```bash
+# Required: Enable Sentry (must be 'true' to activate)
+NEXT_PUBLIC_ENABLE_SENTRY=true
+
+# Required: Sentry DSN (can be same as backend)
+NEXT_PUBLIC_SENTRY_DSN=https://your-dsn@o12345.ingest.sentry.io/67890
+
+# Optional: Environment name (default: development)
+NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
+
+# Optional: Performance monitoring sample rate (default: 0.1)
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# Optional: Sentry organization and project for source map uploads
+SENTRY_ORG=your-org
+SENTRY_PROJECT=your-project
+```
+
+#### What Gets Monitored
+
+**Backend (FastAPI):**
+
+- All API endpoint errors with request context
+- Performance metrics for `/simulate` endpoint
+- Request timing and throughput
+- Model fitting failures and data issues
+- Structured JSON logs with request IDs
+
+**Frontend (Next.js):**
+
+- JavaScript errors and unhandled exceptions
+- API failure responses with status codes
+- React component errors via Error Boundary
+- User interaction errors and form validation
+
+#### Privacy & Data Protection
+
+**⚠️ Privacy Notice**: This application is designed with privacy in mind:
+
+- **No PII in Logs**: Driver names and personally identifiable information are never logged
+- **Input Hashing**: Simulation inputs are hashed (SHA256) for privacy-safe request tracking
+- **Rounded Outputs**: Numerical results are rounded before logging to prevent precision-based identification
+- **Request IDs**: Each request gets a unique UUID for correlation without exposing user data
+- **No Default PII**: Sentry is configured with `sendDefaultPii: false`
+
+**Logged Data Examples:**
+
+```json
+{
+  "level": "info",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Simulation completed successfully",
+  "input_hash": "a1b2c3d4e5f6789",
+  "duration_ms": 245.67,
+  "p_undercut": 0.675,
+  "models_used": { "deg": true, "pit": true, "outlap": false }
+}
+```
+
+#### Local Development
+
+For local development, you can disable Sentry monitoring:
+
+```bash
+# Disable Sentry completely
+NEXT_PUBLIC_ENABLE_SENTRY=false
+# Don't set SENTRY_DSN
+```
+
+Logs will still be output to the console for debugging purposes.
+
+#### Setting Up Sentry
+
+1. **Create a Sentry Account**: Sign up at [sentry.io](https://sentry.io/)
+2. **Create Projects**: Set up separate projects for backend and frontend
+3. **Get DSNs**: Copy the DSN from each project's settings
+4. **Configure Environment**: Set the environment variables listed above
+5. **Deploy**: Your application will start sending telemetry data to Sentry
+
+For more details, see the [Sentry documentation](https://docs.sentry.io/).
+
+## �📦 Project Structure
 
 ```
 f1-undercut-sim/
@@ -263,18 +391,21 @@ f1-undercut-sim/
 ### Current Limitations
 
 #### Data Limitations
+
 - **Historical Coverage**: OpenF1 data available from 2023+ (recent seasons only)
 - **Session Matching**: GP name matching requires manual mapping for some circuits
 - **Weather Data**: Current models don't account for weather impact on strategy
 - **Tire Compound**: Limited to basic compound types (SOFT, MEDIUM, HARD)
 
 #### Model Limitations
+
 - **Track Specificity**: Models are not track-specific (Monaco vs Monza differences)
 - **Traffic Modeling**: Doesn't account for traffic impact on lap times
 - **DRS Zones**: No explicit DRS impact on overtaking probability post-undercut
 - **Fuel Load**: Degradation models don't account for decreasing fuel weight
 
 #### Technical Limitations
+
 - **Real-time Data**: No live race integration (historical analysis only)
 - **Driver Skill**: Models assume equal driver performance
 - **Car Performance**: No car-specific performance differences modeled
@@ -283,6 +414,7 @@ f1-undercut-sim/
 ### Future Enhancements
 
 #### Data & Modeling
+
 - [ ] **Weather Integration**: Incorporate weather data for strategy impact
 - [ ] **Track-Specific Models**: Individual models for each circuit
 - [ ] **Machine Learning**: Advanced ML models (Random Forest, Neural Networks)
@@ -290,7 +422,8 @@ f1-undercut-sim/
 - [ ] **Multi-compound Strategy**: Complex tire strategy optimization
 - [ ] **Traffic Simulation**: Model traffic impact on undercut success
 
-#### Features & User Experience  
+#### Features & User Experience
+
 - [ ] **Mobile App**: React Native mobile application
 - [ ] **Team Dashboard**: Multi-driver strategy comparison dashboard
 - [ ] **Historical Analysis**: Season-long strategy pattern analysis
@@ -299,8 +432,9 @@ f1-undercut-sim/
 - [ ] **Collaborative Features**: Team strategy sharing and discussion
 
 #### Technical Improvements
+
 - [ ] **Performance Optimization**: GPU acceleration for Monte Carlo simulations
-- [ ] **Database Integration**: PostgreSQL for historical data persistence  
+- [ ] **Database Integration**: PostgreSQL for historical data persistence
 - [ ] **Microservices**: Containerized deployment with Kubernetes
 - [ ] **A/B Testing**: Model performance comparison framework
 - [ ] **Documentation**: Interactive API documentation with live examples
@@ -309,6 +443,7 @@ f1-undercut-sim/
 ## 🤝 Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
 - **Development Setup**: Local environment configuration
 - **Code Style**: Formatting and linting requirements
 - **Testing Guidelines**: Unit and integration test standards
@@ -322,11 +457,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 **Data Providers:**
+
 - **OpenF1** for live timing and telemetry data
 - **Jolpica F1 (Ergast)** for historical race data
 - **Formula 1** for the amazing sport that inspired this project
 
 **Technologies:**
+
 - **FastAPI** for the robust backend framework
 - **Next.js** for the modern frontend experience
 - **Plotly.js** for beautiful data visualizations
