@@ -117,10 +117,10 @@ def sample_outlap_data():
 def mock_api_calls():
     """Mock all external API calls to return static data."""
     # Mock OpenF1 API calls
-    with patch('backend.services.openf1.OpenF1Client.get_laps') as mock_get_laps, \
-         patch('backend.services.openf1.OpenF1Client.get_pit_events') as mock_get_pit_events, \
-         patch('backend.services.jolpica.JolpicaClient.get_results') as mock_get_results, \
-         patch('backend.services.jolpica.JolpicaClient.get_schedule') as mock_get_schedule:
+    with patch('services.openf1.OpenF1Client.get_laps') as mock_get_laps, \
+         patch('services.openf1.OpenF1Client.get_pit_events') as mock_get_pit_events, \
+         patch('services.jolpica.JolpicaClient.get_results') as mock_get_results, \
+         patch('services.jolpica.JolpicaClient.get_schedule') as mock_get_schedule:
         
         # Return empty DataFrames by default (can be overridden in specific tests)
         mock_get_laps.return_value = pd.DataFrame()

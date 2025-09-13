@@ -5,7 +5,7 @@ Tests for PitModel (Pit Stop Time Loss Model)
 import pytest
 import numpy as np
 import pandas as pd
-from backend.models.pit import PitModel
+from models.pit import PitModel
 
 
 def test_pit_model_sample_deterministic(sample_pit_data, deterministic_rng):

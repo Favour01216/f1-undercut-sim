@@ -24,43 +24,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
-        run_install: false
-
     - name: Setup Node.js 20
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'pnpm'
-        cache-dependency-path: frontend/pnpm-lock.yaml
-
-    - name: Get pnpm store directory
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-    - name: Setup pnpm cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
 
     - name: Install dependencies
-      run: pnpm install --frozen-lockfile
+      run: npm ci
 
     - name: Run linting
-      run: pnpm run lint
+      run: npm run lint
 
     - name: Run type checking
-      run: pnpm run type-check
+      run: npm run type-check
 
     - name: Build application
-      run: pnpm run build
+      run: npm run build
 
     - name: Check bundle size
       run: |
@@ -78,16 +59,11 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
-
     - name: Install dependencies
-      run: pnpm install --frozen-lockfile
+      run: npm ci
       working-directory: frontend
 
     - name: Run security audit
-      run: pnpm audit --audit-level moderate
+      run: npm audit --audit-level moderate
       working-directory: frontend
       continue-on-error: true
