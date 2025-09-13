@@ -8,12 +8,12 @@ and undercut simulation with probability calculations.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, conint, confloat
 import uvicorn
 import os
 import logging
 import numpy as np
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 
 # Import our new modeling classes and API clients
 from models.deg import DegModel
@@ -29,10 +29,19 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI(
     title="F1 Undercut Simulator",
-    description="API for F1 undercut simulation and probability analysis",
+    description="API for F1 undercut simulation and probability analysis with strict validation",
     version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    contact={
+        "name": "F1 Undercut Simulator API",
+        "email": "favour@example.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
 )
 
 # Configure CORS
@@ -58,22 +67,36 @@ global_models = {
 }
 
 
-class SimulateRequest(BaseModel):
-    """Request model for undercut simulation."""
-    gp: str = Field(..., description="Grand Prix identifier (e.g., 'bahrain', 'monaco')")
+# Define valid Grand Prix circuits
+GP_CHOICES = Literal[
+    "bahrain", "imola", "monza", "monaco", "spain", "canada", "austria", 
+    "silverstone", "hungary", "belgium", "netherlands", "italy", "singapore",
+    "japan", "qatar", "usa", "mexico", "brazil", "abu_dhabi", "australia",
+    "china", "azerbaijan", "miami", "france", "portugal", "russia", "turkey",
+    "saudi_arabia", "las_vegas"
+]
+
+# Define valid tire compounds
+COMPOUND_CHOICES = Literal["SOFT", "MEDIUM", "HARD"]
+
+
+class SimIn(BaseModel):
+    """Request model for undercut simulation with strict validation."""
+    gp: GP_CHOICES = Field(..., description="Grand Prix circuit identifier")
     year: int = Field(..., description="Race year", ge=2020, le=2024)
-    driver_a: str = Field(..., description="Driver attempting undercut (driver number or name)")
-    driver_b: str = Field(..., description="Driver being undercut (driver number or name)")  
-    compound_a: str = Field(..., description="Tire compound for driver A", pattern="^(SOFT|MEDIUM|HARD)$")
-    lap_now: int = Field(..., description="Current lap number", ge=1, le=100)
-    samples: Optional[int] = Field(1000, description="Number of Monte Carlo samples", ge=100, le=10000)
+    driver_a: str = Field(..., description="Driver attempting undercut (driver number or name)", min_length=1, max_length=50)
+    driver_b: str = Field(..., description="Driver being undercut (driver number or name)", min_length=1, max_length=50)
+    compound_a: COMPOUND_CHOICES = Field(..., description="Tire compound for driver A")
+    lap_now: conint(ge=1, le=100) = Field(..., description="Current lap number")
+    samples: conint(ge=1, le=10000) = Field(1000, description="Number of Monte Carlo samples")
 
 
-class SimulateResponse(BaseModel):
-    """Response model for undercut simulation."""
-    p_undercut: float = Field(..., description="Probability of successful undercut (0-1)")
+class SimOut(BaseModel):
+    """Response model for undercut simulation with strict validation."""
+    p_undercut: confloat(ge=0, le=1) = Field(..., description="Probability of successful undercut (0-1)")
     pitLoss_s: float = Field(..., description="Expected pit stop time loss in seconds")
-    outLapDelta_s: float = Field(..., description="Expected outlap penalty in seconds") 
+    outLapDelta_s: float = Field(..., description="Expected outlap penalty in seconds")
+    avgMargin_s: Optional[float] = Field(None, description="Average margin of success/failure in seconds")
     assumptions: Dict[str, Any] = Field(..., description="Model assumptions and parameters used")
 
 
@@ -91,8 +114,8 @@ async def root() -> Dict[str, str]:
 
 @app.get("/health")
 async def health_check() -> Dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "f1-undercut-sim-backend"}
+    """Health check endpoint returning service status."""
+    return {"status": "ok"}
 
 
 def get_or_fit_models(gp: str, year: int) -> Dict[str, Any]:
@@ -164,8 +187,8 @@ def calculate_driver_gap(gp: str, year: int, driver_a: str, driver_b: str, lap_n
     return base_gap * lap_factor
 
 
-@app.post("/simulate", response_model=SimulateResponse)
-async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
+@app.post("/simulate", response_model=SimOut)
+async def simulate_undercut(request: SimIn) -> SimOut:
     """
     Simulate undercut probability between two drivers.
     
@@ -255,24 +278,29 @@ async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
         avg_pit_loss = np.mean(pit_losses)
         avg_outlap_delta = np.mean(outlap_deltas)
         
+        # Calculate average margin (positive = success, negative = failure)
+        margins = [
+            (gap_seconds + deg - (pit + outlap)) 
+            for pit, outlap, deg in zip(pit_losses, outlap_deltas, degradation_penalties)
+        ]
+        avg_margin = float(np.mean(margins))
+        
         # Add more details to assumptions
         assumptions.update({
             "avg_degradation_penalty_s": float(np.mean(degradation_penalties)),
             "pit_loss_range": [float(np.min(pit_losses)), float(np.max(pit_losses))],
             "outlap_delta_range": [float(np.min(outlap_deltas)), float(np.max(outlap_deltas))],
             "compound_used": request.compound_a,
-            "success_margin_s": float(np.mean([
-                (gap_seconds + deg - (pit + outlap)) 
-                for pit, outlap, deg in zip(pit_losses, outlap_deltas, degradation_penalties)
-            ]))
+            "success_margin_s": avg_margin
         })
         
         logger.info(f"Simulation complete: P(undercut) = {p_undercut:.1%}")
         
-        return SimulateResponse(
+        return SimOut(
             p_undercut=p_undercut,
             pitLoss_s=float(avg_pit_loss),
             outLapDelta_s=float(avg_outlap_delta),
+            avgMargin_s=avg_margin,
             assumptions=assumptions
         )
         
