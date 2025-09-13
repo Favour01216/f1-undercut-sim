@@ -45,20 +45,14 @@ export function PerformanceChart() {
     y,
     z,
     type: 'heatmap' as const,
-    colorscale: [
-      [0, '#dc2626'],      // Red for low probability
-      [0.3, '#f59e0b'],    // Orange 
-      [0.6, '#eab308'],    // Yellow
-      [0.8, '#22c55e'],    // Green
-      [1, '#16a34a']       // Dark green for high probability
-    ],
+    colorscale: 'Viridis' as any,
     hoverongaps: false,
     hovertemplate: 
       '<b>Lap %{x}</b><br>' +
       'Compound: %{y}<br>' +
       'Undercut Probability: %{z:.1%}' +
       '<extra></extra>',
-  }]
+  }] as any[]
 
   const layout = {
     title: {
@@ -67,7 +61,7 @@ export function PerformanceChart() {
     },
     xaxis: {
       title: 'Current Lap',
-      tickmode: 'linear',
+      tickmode: 'linear' as const,
       tick0: 1,
       dtick: 2
     },
@@ -83,7 +77,7 @@ export function PerformanceChart() {
         tickformat: '.0%'
       }
     }
-  }
+  } as any
 
   const config = {
     displayModeBar: false,

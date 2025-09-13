@@ -5,7 +5,7 @@ Tests for OutlapModel (Outlap Performance Model)
 import pytest
 import numpy as np
 import pandas as pd
-from backend.models.outlap import OutlapModel
+from models.outlap import OutlapModel
 
 
 @pytest.fixture
@@ -46,9 +46,16 @@ def sample_outlap_data():
 def minimal_outlap_data():
     """Minimal valid outlap dataset."""
     return pd.DataFrame({
-        'lap_time': [91.5, 90.2, 90.0, 92.2, 90.1, 90.0],  # outlap, warmed, warmed
-        'compound': ['SOFT', 'SOFT', 'SOFT', 'MEDIUM', 'MEDIUM', 'MEDIUM'],
-        'stint_lap': [1, 3, 4, 1, 3, 4]
+        'lap_time': [
+            # SOFT: 3 outlaps, 3 warmed (minimum for model)
+            91.5, 91.3, 91.0,  # outlaps  
+            90.2, 90.0, 90.1,  # warmed
+            # MEDIUM: 3 outlaps, 3 warmed
+            92.2, 92.0, 91.8,  # outlaps
+            90.8, 90.6, 90.7   # warmed  
+        ],
+        'compound': ['SOFT'] * 6 + ['MEDIUM'] * 6,
+        'stint_lap': [1, 1, 1, 3, 4, 5, 1, 1, 1, 3, 4, 5]
     })
 
 
@@ -94,7 +101,7 @@ class TestOutlapModel:
         model = OutlapModel()
         df = pd.DataFrame({'wrong_col': [1, 2, 3]})
         
-        with pytest.raises(ValueError, match="No lap time column"):
+        with pytest.raises(ValueError, match="No column found from candidates"):
             model.fit(df)
     
     def test_fit_insufficient_data(self):
@@ -106,16 +113,23 @@ class TestOutlapModel:
             'stint_lap': [1, 2]
         })
         
-        with pytest.raises(ValueError, match="Insufficient data"):
+        with pytest.raises(ValueError, match="Could not fit model for any compounds"):
             model.fit(df)
     
     def test_alternative_column_names(self):
         """Test fitting with alternative column names."""
         model = OutlapModel()
         df = pd.DataFrame({
-            'lap_duration': [91.0, 90.0, 90.1, 92.5, 90.2, 90.0],
-            'tire_compound': ['SOFT', 'SOFT', 'SOFT', 'MEDIUM', 'MEDIUM', 'MEDIUM'],
-            'tire_age': [1, 3, 4, 1, 3, 4]
+            'lap_duration': [
+                # SOFT: 3 outlaps, 3 warmed (minimum for model)
+                91.5, 91.3, 91.0,  # outlaps  
+                90.2, 90.0, 90.1,  # warmed
+                # MEDIUM: 3 outlaps, 3 warmed
+                92.2, 92.0, 91.8,  # outlaps
+                90.8, 90.6, 90.7   # warmed  
+            ],
+            'tire_compound': ['SOFT'] * 6 + ['MEDIUM'] * 6,
+            'tire_age': [1, 1, 1, 3, 4, 5, 1, 1, 1, 3, 4, 5]
         })
         
         model.fit(df)
@@ -125,9 +139,16 @@ class TestOutlapModel:
         """Test compound name normalization."""
         model = OutlapModel()
         df = pd.DataFrame({
-            'lap_time': [91.0, 90.0, 90.1, 92.0, 90.2, 90.1],
-            'compound': ['s', 'S', 'soft', 'M', 'm', 'medium'],  # Various formats
-            'stint_lap': [1, 3, 4, 1, 3, 4]
+            'lap_time': [
+                # SOFT variations: 3 outlaps, 3 warmed
+                91.5, 91.3, 91.0,  # outlaps  
+                90.2, 90.0, 90.1,  # warmed
+                # MEDIUM variations: 3 outlaps, 3 warmed
+                92.2, 92.0, 91.8,  # outlaps
+                90.8, 90.6, 90.7   # warmed  
+            ],
+            'compound': ['s', 'S', 'soft'] * 2 + ['M', 'm', 'medium'] * 2,  # Various formats  
+            'stint_lap': [1, 1, 1, 3, 4, 5, 1, 1, 1, 3, 4, 5]
         })
         
         model.fit(df)
@@ -191,10 +212,15 @@ class TestOutlapModel:
         
         compound = list(model.compound_models.keys())[0]
         
-        with pytest.raises(ValueError, match="must be positive"):
-            model.sample(compound, 0)
+        # Test n=0 returns empty array (edge case, but allowed) 
+        result = model.sample(compound, 0)
+        assert len(result) == 0
         
-        with pytest.raises(ValueError, match="must be positive"):
+        # Test negative n raises error  
+        with pytest.raises(ValueError, match="must be non-negative"):
+            model.sample(compound, -1)
+        
+        with pytest.raises(ValueError, match="must be non-negative"):
             model.sample(compound, -5)
     
     def test_get_model_info_before_fitting(self):

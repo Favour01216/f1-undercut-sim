@@ -1,4 +1,8 @@
-# F1 Undercut Simulator
+# 🏎️ F1 Undercut Simulator
+
+[![ci-backend](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-backend.yml/badge.svg)](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-backend.yml)
+[![ci-frontend](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-frontend.yml/badge.svg)](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-frontend.yml)
+[![codecov](https://codecov.io/gh/Favour01216/f1-undercut-sim/branch/main/graph/badge.svg)](https://codecov.io/gh/Favour01216/f1-undercut-sim)
 
 **A comprehensive Formula 1 undercut simulation tool** that combines real-time F1 data with advanced statistical modeling to predict the success probability of undercut pit strategies. Built with FastAPI, Next.js, and powered by real F1 telemetry data from OpenF1 and Jolpica APIs.
 
@@ -6,283 +10,253 @@
 
 The F1 Undercut Simulator revolutionizes pit strategy analysis by providing data-driven insights into one of Formula 1's most critical tactical decisions. By leveraging machine learning models trained on real F1 data, this tool calculates undercut probabilities with unprecedented accuracy, helping teams and fans understand the complex mathematics behind successful pit strategies. The system integrates tire degradation physics, pit stop variability, and cold tire performance penalties into a unified Monte Carlo simulation framework.
 
-## 🏎️ Live Demo
+## 🚀 Quickstart
 
-- **Frontend**: http://localhost:3000 (Next.js)
-- **Backend API**: http://localhost:8000 (FastAPI)
-- **API Docs**: http://localhost:8000/docs
+### ⚡ Quick Setup & Run
 
-## ✨ Features
-
-🏎️ **Tire Degradation Analysis**
-
-- Real-time tire performance modeling
-- Temperature-aware degradation calculations
-- Compound-specific performance predictions
-- Optimal stint window identification
-
-⚡ **Pit Strategy Optimization**
-
-- One-stop, two-stop, and three-stop strategy analysis
-- Undercut and overcut opportunity detection
-- Position gain predictions
-- Risk assessment and confidence scoring
-
-📊 **Undercut Simulation**
-
-- Monte Carlo probability calculation
-- Interactive web interface with form validation
-- Real-time results with strategic interpretation
-- Performance heatmaps and visualizations
-
-🌐 **Real F1 Data Integration**
-
-- OpenF1 API for live timing and telemetry
-- Jolpica F1 API for historical race data
-- Session-based analysis capabilities
-- Multi-year data support with Parquet caching
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.9+
-- Node.js 18+
-- npm or yarn
-
-### Backend Setup
-
-1. Install Python dependencies:
-
+**1. Backend (FastAPI + Python)**
 ```bash
-pip install --user fastapi uvicorn pandas numpy scipy requests pyarrow pydantic
-```
+# Clone repository
+git clone https://github.com/Favour01216/f1-undercut-sim.git
+cd f1-undercut-sim
 
-2. Start the FastAPI server:
+# Install Python dependencies
+pip install -e .[dev,test]
 
-```bash
+# Setup pre-commit hooks
+pre-commit install
+
+# Start the FastAPI server
 cd backend
 python app.py
+# ✅ Server running at http://localhost:8000
 ```
 
-The backend will be available at `http://localhost:8000`
-
-### Frontend Setup
-
-1. Install Node.js dependencies:
-
+**2. Frontend (Next.js + TypeScript)**
 ```bash
+# Install Node.js dependencies
 cd frontend
-npm install
+pnpm install
+
+# Start the development server
+pnpm run dev
+# ✅ Frontend running at http://localhost:3000
 ```
 
-2. Start the development server:
+**3. Access the Application**
+- **🌐 Web Interface**: http://localhost:3000
+- **📚 API Documentation**: http://localhost:8000/docs
+- **❤️ Health Check**: http://localhost:8000/health
 
-```bash
-npm run dev
+## 🔬 Methods & Validation
+
+### Statistical Models
+
+#### DegModel (Tire Degradation)
+- **Method**: Quadratic regression fitting
+- **Formula**: `lap_delta = a*age² + b*age + c`
+- **Validation**: R² > 0.7, minimum 5 data points
+- **Output**: Predicted lap time delta for given tire age
+
+```python
+model = DegModel()
+model.fit(lap_data)  # Fits quadratic degradation curve
+delta = model.predict(tire_age=15)  # Returns time loss in seconds
 ```
 
-The frontend will be available at `http://localhost:3000`
+#### PitModel (Pit Stop Times)
+- **Method**: Normal distribution fitting
+- **Parameters**: Mean and standard deviation of pit losses
+- **Validation**: Minimum 5 pit stops, outlier detection
+- **Output**: Random pit loss samples from fitted distribution
 
-## 📱 Using the Simulator
-
-1. **Configure Parameters**:
-
-   - Select Grand Prix and year
-   - Choose drivers (A = undercutting, B = being undercut)
-   - Pick tire compound for driver A
-   - Set current lap number
-   - Choose Monte Carlo sample size
-
-2. **Run Simulation**:
-
-   - Click "Run Simulation"
-   - Wait for results (usually < 5 seconds)
-
-3. **Analyze Results**:
-   - **Success Probability**: Percentage chance of successful undercut
-   - **Pit Loss**: Expected time lost during pit stop
-   - **Outlap Penalty**: Time penalty from cold tires
-   - **Strategic Interpretation**: Recommended action
-
-## 📊 API Endpoints
-
-### POST /simulate
-
-Calculate undercut probability between two drivers.
-
-**Request:**
-
-```json
-{
-  "gp": "bahrain",
-  "year": 2024,
-  "driver_a": "VER",
-  "driver_b": "HAM",
-  "compound_a": "MEDIUM",
-  "lap_now": 25,
-  "samples": 1000
-}
+```python
+model = PitModel()
+model.fit(pit_data)  # Fits normal distribution
+losses = model.sample(n=1000, rng=rng)  # Monte Carlo sampling
 ```
 
-**Response:**
+#### OutlapModel (Cold Tire Performance)
+- **Method**: Compound-specific penalty modeling
+- **Compounds**: SOFT, MEDIUM, HARD tire analysis
+- **Validation**: Separate outlap (stint lap 1) vs warmed laps
+- **Output**: Random outlap penalty by compound
 
-```json
-{
-  "p_undercut": 0.67,
-  "pitLoss_s": 24.8,
-  "outLapDelta_s": 1.2,
-  "assumptions": {
-    "current_gap_s": 4.5,
-    "models_fitted": { "deg_model": true },
-    "monte_carlo_samples": 1000
-  }
-}
+```python
+model = OutlapModel()
+model.fit(lap_data)  # Analyzes outlap vs warmed performance
+penalty = model.sample('SOFT', n=1000, rng=rng)  # Samples cold tire penalties
 ```
 
-### GET /health
+### Monte Carlo Simulation
 
-Health check endpoint.
+The undercut probability calculation uses Monte Carlo simulation with deterministic seeding:
 
-### GET /docs
+```python
+# Deterministic RNG for reproducible results
+rng = np.random.default_rng(seed=42)
 
-Interactive API documentation.
+# For each simulation iteration (default: 1000)
+pit_loss = PitModel.sample(rng=rng)
+outlap_penalty = OutlapModel.sample(compound, rng=rng)
+stay_out_delta = DegModel.predict(current_tire_age + 1)
 
-## 🔧 Models and Algorithms
+# Undercut succeeds if:
+undercut_success = (current_gap + pit_loss + outlap_penalty) < stay_out_delta
 
-### DegModel (Tire Degradation)
+# Final probability
+p_undercut = (successful_undercuts / total_simulations) * 100
+```
 
-- Quadratic degradation fitting: `lap_delta = a*age² + b*age + c`
-- Handles outliers and validates data quality
-- R² goodness of fit measurement
-- Predicts time loss per lap based on tire age
-
-### PitModel (Pit Stop Times)
-
-- Normal distribution fitting of historical pit stop data
-- Monte Carlo sampling for strategy simulations
-- Probability calculations and scenario analysis
-- Accounts for pit lane time and track position loss
-
-### OutlapModel (Cold Tire Performance)
-
-- Compound-specific outlap penalty modeling
-- Separates first lap (cold) vs warmed tire performance
-- Random sampling for simulation variability
-- Handles SOFT, MEDIUM, HARD compound differences
-
-## 🌐 Data Sources
+## 📊 Data Sources & Licenses
 
 ### OpenF1 API
-
-- Live timing data and telemetry
-- Session details and lap times
-- Pit stop events and tire information
-- Real-time race data with caching
+- **Purpose**: Live timing, telemetry, and session data
+- **Website**: [openf1.org](https://openf1.org/)
+- **License**: Public API, fair use terms
+- **Data**: Lap times, pit stops, session details, driver positions
+- **Rate Limits**: Respectful usage with caching and retry logic
 
 ### Jolpica F1 API (Ergast)
+- **Purpose**: Historical race results and schedule data
+- **Website**: [ergast.com/mrd](http://ergast.com/mrd/)
+- **License**: Creative Commons Attribution-NonCommercial-ShareAlike
+- **Data**: Race results, championship standings, circuit information
+- **Historical**: Complete F1 data from 1950 to present
 
-- Historical race results and standings
-- Driver and constructor information
-- Circuit data and race schedules
-- Multi-year historical analysis
+### FastF1 (Optional Enhancement)
+- **Purpose**: Advanced telemetry analysis
+- **Website**: [docs.fastf1.dev](https://docs.fastf1.dev/)
+- **License**: MIT License
+- **Data**: Detailed car telemetry, track maps, weather data
+- **Note**: Can be integrated for enhanced analysis
 
-## 🔄 Architecture
+## 🧪 Testing & Development
+
+### Running Tests
+
+**Backend Tests**
+```bash
+cd backend
+
+# Run all unit tests (excludes integration tests)
+python -m pytest tests/ -v -m "not integration"
+
+# Run with coverage
+python -m pytest tests/ --cov=models --cov=services --cov=app --cov-report=term-missing
+
+# Run specific test file
+python -m pytest tests/test_deg.py -v
+
+# Run integration tests (hits real APIs)
+python -m pytest tests/ -v -m "integration"
+```
+
+**Frontend Tests**
+```bash
+cd frontend
+
+# Type checking
+pnpm run type-check
+
+# Linting
+pnpm run lint
+
+# Build check
+pnpm run build
+```
+
+### Development Setup
+
+**Prerequisites:**
+- Python 3.11+
+- Node.js 20+
+- pnpm 9+
+
+**Environment Setup:**
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+vim .env
+
+# Install pre-commit hooks
+pre-commit install
+```
+
+### Code Quality
+
+All code is automatically formatted and linted using:
+- **Ruff**: Fast Python linter and formatter (line-length: 100)
+- **Black**: Python code formatter (fallback)
+- **ESLint**: JavaScript/TypeScript linting
+- **Prettier**: Code formatting
+
+## 🚦 CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+**Backend CI** (`.github/workflows/ci-backend.yml`):
+- Python 3.11 testing
+- Pre-commit hook validation
+- Unit tests with 80% coverage requirement
+- Security scanning with bandit
+- Type checking
+
+**Frontend CI** (`.github/workflows/ci-frontend.yml`):
+- Node.js 20 with pnpm
+- TypeScript compilation
+- ESLint validation  
+- Build verification
+- Bundle size analysis
+
+### Branch Protection
+
+**Required Status Checks:**
+- `ci-backend` must pass
+- `ci-frontend` must pass
+- All tests deterministic (no network calls in unit tests)
+- 80%+ test coverage
+
+## 📦 Project Structure
 
 ```
 f1-undercut-sim/
-├── backend/                 # FastAPI service
-│   ├── app.py              # Main API with /simulate endpoint
-│   ├── models/             # Analysis models
-│   │   ├── deg.py         # DegModel - tire degradation
-│   │   ├── pit.py         # PitModel - pit stop sampling
-│   │   └── outlap.py      # OutlapModel - cold tire penalties
-│   ├── services/           # External API integrations
-│   │   ├── openf1.py      # OpenF1Client with caching
-│   │   └── jolpica.py     # JolpicaClient with caching
-│   └── tests/             # Comprehensive test suite
-├── frontend/               # Next.js App Router UI
-│   ├── app/               # Next.js app directory
-│   ├── components/        # React components
+├── backend/                    # FastAPI backend
+│   ├── models/                 # Statistical models
+│   │   ├── deg.py             # DegModel - tire degradation
+│   │   ├── pit.py             # PitModel - pit stop sampling
+│   │   └── outlap.py          # OutlapModel - cold tire penalties
+│   ├── services/              # External API integrations
+│   │   ├── openf1.py          # OpenF1 API client
+│   │   └── jolpica.py         # Jolpica API client
+│   ├── tests/                 # Unit and integration tests
+│   │   ├── conftest.py        # Test fixtures and mocks
+│   │   ├── test_deg.py        # DegModel tests
+│   │   ├── test_pit.py        # PitModel tests
+│   │   ├── test_outlap.py     # OutlapModel tests
+│   │   └── test_api.py        # FastAPI endpoint tests
+│   └── app.py                 # FastAPI application
+├── frontend/                  # Next.js frontend
+│   ├── app/                   # Next.js App Router
+│   ├── components/            # React components
 │   │   ├── simulation-form.tsx     # Main form interface
 │   │   ├── simulation-results.tsx  # Results display
 │   │   ├── performance-chart.tsx   # Plotly.js heatmap
-│   │   └── ui/            # shadcn/ui components
-│   ├── types/             # TypeScript type definitions
-│   └── lib/               # Utility functions
-├── features/              # Cached Parquet data (gitignored)
-└── memory-bank/           # Project documentation
+│   │   └── ui/                # shadcn/ui components
+│   ├── lib/                   # Utilities and API client
+│   ├── types/                 # TypeScript definitions
+│   └── styles/               # Global styles
+├── docs/                      # Documentation
+│   └── glossary.md           # F1 terminology glossary
+├── .github/workflows/         # CI/CD pipelines
+│   ├── ci-backend.yml        # Backend testing
+│   └── ci-frontend.yml       # Frontend testing
+├── .pre-commit-config.yaml   # Code quality hooks
+├── pyproject.toml            # Python dependencies and tools
+└── README.md                 # This file
 ```
-
-## 🧪 Testing
-
-### Backend Tests
-
-```bash
-cd backend
-python -m pytest tests/ -v
-```
-
-### Frontend Type Check
-
-```bash
-cd frontend
-npm run type-check
-```
-
-## 🛠️ Development
-
-The project uses:
-
-- **Backend**: FastAPI, Pandas, NumPy, SciPy, Requests, PyArrow
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, React Hook Form, Plotly.js
-- **Data**: Parquet caching, HTTP retry logic, comprehensive error handling
-
-### Adding New Features
-
-1. **New Models**: Add to `backend/models/` with tests
-2. **New Endpoints**: Update `backend/app.py`
-3. **Frontend Components**: Add to `frontend/components/`
-4. **Data Sources**: Extend API clients in `backend/services/`
-
-## 📈 Performance Features
-
-- **Caching**: Parquet files for API responses with date-based invalidation
-- **Retry Logic**: Exponential backoff for HTTP requests (2, 4, 8 seconds)
-- **Error Handling**: Graceful degradation when data unavailable
-- **Monte Carlo**: Configurable sample sizes (100-5000) for accuracy vs speed
-- **Loading States**: Real-time progress indication in UI
-
-## 🏆 Example Results
-
-**High Confidence Undercut (75% success)**:
-
-- Gap: 3.2s, Pit Loss: 23.5s, Outlap: 1.1s
-- _Recommendation: Excellent opportunity - pit now!_
-
-**Risky Undercut (45% success)**:
-
-- Gap: 2.1s, Pit Loss: 26.8s, Outlap: 1.8s
-- _Recommendation: Risky but possible - consider alternatives_
-
-**Failed Undercut (15% success)**:
-
-- Gap: 1.5s, Pit Loss: 28.2s, Outlap: 2.3s
-- _Recommendation: Undercut likely to fail - stay out_
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **OpenF1** for real-time F1 data API
-- **Jolpica F1 API (Ergast)** for historical F1 data
-- **Formula 1** for the amazing sport that inspired this project
-- **shadcn/ui** for beautiful UI components
-- **FastAPI** and **Next.js** for excellent frameworks
-
----
 
 ## ⚠️ Limitations & Future Work
 
@@ -332,19 +306,32 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] **Documentation**: Interactive API documentation with live examples
 - [ ] **Testing**: Extended integration and end-to-end test coverage
 
-#### Research & Development
-- [ ] **Academic Collaboration**: Partner with F1 teams and universities
-- [ ] **Model Validation**: Comparison with actual race outcomes
-- [ ] **Predictive Analytics**: Extend to full race strategy optimization
-- [ ] **Economic Modeling**: Cost-benefit analysis of strategy decisions
+## 🤝 Contributing
 
-### Contributing to Future Work
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- **Development Setup**: Local environment configuration
+- **Code Style**: Formatting and linting requirements
+- **Testing Guidelines**: Unit and integration test standards
+- **Pull Request Process**: Review and merge procedures
+- **Branch Strategy**: Git Flow workflow
 
-We welcome contributions in any of these areas! Check out our [Contributing Guide](CONTRIBUTING.md) for:
-- **Code Contributions**: Implement new features and improvements
-- **Data Analysis**: Enhance models with better algorithms
-- **Testing**: Expand test coverage and validation
-- **Documentation**: Improve docs and examples
-- **Research**: Academic research collaboration opportunities
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+**Data Providers:**
+- **OpenF1** for live timing and telemetry data
+- **Jolpica F1 (Ergast)** for historical race data
+- **Formula 1** for the amazing sport that inspired this project
+
+**Technologies:**
+- **FastAPI** for the robust backend framework
+- **Next.js** for the modern frontend experience
+- **Plotly.js** for beautiful data visualizations
+- **shadcn/ui** for elegant UI components
+
+---
 
 **Made with ❤️ for Formula 1 strategy nerds and data enthusiasts.**

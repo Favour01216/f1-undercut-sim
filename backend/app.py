@@ -195,7 +195,8 @@ async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
             "monte_carlo_samples": request.samples
         }
         
-        # Monte Carlo simulation
+        # Monte Carlo simulation with deterministic RNG
+        rng = np.random.default_rng(42)  # Deterministic seed for reproducible results
         successes = 0
         pit_losses = []
         outlap_deltas = []
@@ -204,27 +205,27 @@ async def simulate_undercut(request: SimulateRequest) -> SimulateResponse:
         for _ in range(request.samples):
             # Sample pit stop time loss
             if models['pit'] is not None and models['pit'].fitted:
-                pit_loss = models['pit'].sample(1)
+                pit_loss = models['pit'].sample(1, rng=rng)
             else:
                 # Default F1 pit stop loss: ~25 seconds ± 3s
-                pit_loss = np.random.normal(25.0, 3.0)
+                pit_loss = rng.normal(25.0, 3.0)
             
             pit_losses.append(pit_loss)
             
             # Sample outlap penalty for compound A
             if models['outlap'] is not None and models['outlap'].fitted:
                 try:
-                    outlap_delta = models['outlap'].sample(request.compound_a, 1)
+                    outlap_delta = models['outlap'].sample(request.compound_a, 1, rng=rng)
                 except ValueError:
                     # Compound not available, use typical penalty
                     compound_penalties = {'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}
-                    outlap_delta = np.random.normal(
+                    outlap_delta = rng.normal(
                         compound_penalties.get(request.compound_a, 1.2), 0.3
                     )
             else:
                 # Default outlap penalties by compound
                 compound_penalties = {'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}
-                outlap_delta = np.random.normal(
+                outlap_delta = rng.normal(
                     compound_penalties.get(request.compound_a, 1.2), 0.3
                 )
             

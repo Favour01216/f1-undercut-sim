@@ -49,25 +49,25 @@ export function SimulationChart({ data }: SimulationChartProps = {}) {
 
     const plotData = data || defaultData
 
-    const layout = {
-        title: data ? 'Simulation Results' : 'Tire Degradation Example',
-        xaxis: {
-            title: 'Laps',
-            tickmode: 'linear',
-            tick0: 1,
-            dtick: 2
-        },
-        yaxis: {
-            title: 'Lap Time (s)',
-        },
-        margin: { t: 60, r: 20, b: 60, l: 80 },
-        height: 300,
-        legend: {
-            orientation: 'h',
-            y: -0.2
-        },
-        hovermode: 'closest'
-    }
+  const layout = {
+    title: data ? 'Simulation Results' : 'Tire Degradation Example',
+    xaxis: {
+      title: 'Laps',
+      tickmode: 'linear' as const,
+      tick0: 1,
+      dtick: 2
+    },
+    yaxis: {
+      title: 'Lap Time (s)',
+    },
+    margin: { t: 60, r: 20, b: 60, l: 80 },
+    height: 300,
+    legend: {
+      orientation: 'h' as const,
+      y: -0.2
+    },
+    hovermode: 'closest' as const
+  } as any
 
     const config = {
         displayModeBar: false,
