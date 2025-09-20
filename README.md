@@ -1,4 +1,4 @@
-﻿#  F1 Undercut Simulator
+﻿# F1 Undercut Simulator
 
 A sophisticated full-stack web application for Formula 1 race strategy analysis, featuring real-time undercut probability calculations, tire degradation modeling, and pit stop optimization.
 
@@ -11,59 +11,67 @@ A sophisticated full-stack web application for Formula 1 race strategy analysis,
 
 **A comprehensive Formula 1 undercut simulation tool** that combines real-time F1 data with advanced statistical modeling to predict the success probability of undercut pit strategies. Built with FastAPI, Next.js, and powered by real F1 telemetry data from OpenF1 and FastF1 APIs.
 
-##  Screenshots
+## Screenshots
 
 ### Main Dashboard
+
 ![F1 Simulator Dashboard](images/screenshots/dashboard.png)
 
-*Interactive F1 strategy simulation interface with tire compound selection and circuit analysis*
+_Interactive F1 strategy simulation interface with tire compound selection and circuit analysis_
 
 ### Undercut Analysis
+
 ![Undercut Simulation](images/screenshots/undercut-analysis.png)
 
-*Real-time undercut probability calculations with visual strategy recommendations*
+_Real-time undercut probability calculations with visual strategy recommendations_
 
 ### Race Strategy Comparison
+
 ![Strategy Comparison](images/screenshots/strategy-comparison.png)
 
-*Side-by-side driver performance analysis with tire degradation insights*
+_Side-by-side driver performance analysis with tire degradation insights_
 
-##  Features
+## Features
 
-###  Core Racing Features
+### Core Racing Features
+
 - **Real-time Undercut Analysis**: Calculate probability of successful undercuts based on current race conditions
 - **Tire Strategy Optimization**: Compare Soft, Medium, and Hard compound strategies with degradation modeling
 - **Pit Window Analysis**: Identify optimal pit stop timing with traffic and delta considerations
 - **Multi-Circuit Support**: All current F1 circuits with track-specific data and telemetry
 - **Driver Performance Comparison**: Analyze pace differentials between any two drivers
 
-###  Technical Capabilities
+### Technical Capabilities
+
 - **Live F1 Data Integration**: Real-time race data via OpenF1 API
 - **FastF1 Telemetry**: Enhanced data with official F1 timing and telemetry
 - **Machine Learning Models**: Predictive tire degradation and lap time modeling
 - **Historical Analysis**: Access to race data from multiple seasons
 - **Cache Optimization**: Smart data caching for improved performance
 
-###  User Experience
+### User Experience
+
 - **F1-Themed Design**: Racing-inspired UI with authentic Formula 1 aesthetics
 - **Responsive Interface**: Optimized for desktop and mobile devices
 - **Real-time Updates**: Live simulation results with interactive visualizations
 - **Intuitive Controls**: Easy-to-use forms for complex race strategy analysis
 
-##  Architecture
+## Architecture
 
 ### System Overview
+
 ```
-        
-   Frontend              Backend            External APIs  
-   (Next.js)        (FastAPI)         OpenF1      
-   Vercel               Railway               FastF1      
-        
+
+   Frontend              Backend            External APIs
+   (Next.js)        (FastAPI)         OpenF1
+   Vercel               Railway               FastF1
+
 ```
 
 ### Technology Stack
 
 #### Frontend
+
 - **Framework**: Next.js 14.2.32 with React 18
 - **Styling**: Tailwind CSS with custom F1 theming
 - **State Management**: React Query for server state
@@ -71,6 +79,7 @@ A sophisticated full-stack web application for Formula 1 race strategy analysis,
 - **Deployment**: Vercel with edge optimization
 
 #### Backend
+
 - **Framework**: FastAPI with Python 3.11
 - **Data Processing**: Pandas, NumPy for race analysis
 - **ML Models**: Scikit-learn for predictive modeling
@@ -78,13 +87,15 @@ A sophisticated full-stack web application for Formula 1 race strategy analysis,
 - **Deployment**: Railway with Docker containerization
 
 #### Data Sources
+
 - **OpenF1 API**: Real-time race data and telemetry
 - **FastF1**: Official F1 timing data and lap analysis
 - **Custom Models**: Tire degradation and performance algorithms
 
-##  Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
+
 - Node.js 18+
 - Python 3.11+
 - Docker (optional)
@@ -92,6 +103,7 @@ A sophisticated full-stack web application for Formula 1 race strategy analysis,
 ### Local Development
 
 #### Backend Setup
+
 ```bash
 cd backend
 python -m venv .venv
@@ -102,6 +114,7 @@ uvicorn app:app --reload --port 8000
 ```
 
 #### Frontend Setup
+
 ```bash
 cd frontend
 npm install
@@ -109,6 +122,7 @@ npm run dev
 ```
 
 ### Docker Setup
+
 ```bash
 docker-compose up --build
 ```
@@ -116,6 +130,7 @@ docker-compose up --build
 ### Environment Variables
 
 #### Backend (.env)
+
 ```env
 OPENF1_API_URL=https://api.openf1.org/v1
 CORS_ORIGINS=http://localhost:3000,https://your-frontend-domain.com
@@ -124,16 +139,18 @@ OFFLINE=false
 ```
 
 #### Frontend (.env.local)
+
 ```env
 NEXT_PUBLIC_CLIENT_API_URL=http://localhost:8000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-##  API Documentation
+## API Documentation
 
 ### Key Endpoints
 
 #### Simulation
+
 ```http
 POST /simulate
 Content-Type: application/json
@@ -150,16 +167,19 @@ Content-Type: application/json
 ```
 
 #### Health Check
+
 ```http
 GET /health
 ```
 
 #### Available Circuits
+
 ```http
 GET /circuits
 ```
 
 ### Response Format
+
 ```json
 {
   "undercut_probability": 0.73,
@@ -170,15 +190,17 @@ GET /circuits
 }
 ```
 
-##  Testing
+## Testing
 
 ### Backend Tests
+
 ```bash
 cd backend
 pytest tests/ -v --cov=app
 ```
 
 ### Frontend Tests
+
 ```bash
 cd frontend
 npm run test
@@ -186,6 +208,7 @@ npm run test:e2e
 ```
 
 ### API Testing
+
 ```bash
 # Test health endpoint
 curl https://f1-strategy-lab-production.up.railway.app/health
@@ -194,46 +217,50 @@ curl https://f1-strategy-lab-production.up.railway.app/health
 start https://f1-strategy-lab-production.up.railway.app/docs
 ```
 
-##  Deployment
+## Deployment
 
 ### Production URLs
+
 - **Frontend**: [f1simulator-six.vercel.app](https://f1simulator-six.vercel.app)
 - **Backend API**: [f1-strategy-lab-production.up.railway.app](https://f1-strategy-lab-production.up.railway.app)
 - **API Documentation**: [/docs](https://f1-strategy-lab-production.up.railway.app/docs)
 
 ### Deployment Architecture
+
 - **Frontend**: Vercel with automatic deployments from main branch
 - **Backend**: Railway with Docker containerization
 - **Database**: File-based caching with F1 telemetry data
 - **CDN**: Vercel Edge Network for global distribution
 
-##  F1 Circuits Supported
+## F1 Circuits Supported
 
-| Circuit | Country | Key Characteristics |
-|---------|---------|-------------------|
-| Monaco | Monaco | High downforce, overtaking difficulty |
-| Silverstone | UK | High-speed corners, tire degradation |
-| Monza | Italy | Low downforce, slipstream importance |
-| Spa-Francorchamps | Belgium | Weather variability, elevation changes |
-| Singapore | Singapore | Night race, tire conservation |
-| Suzuka | Japan | Technical layout, compound strategy |
-| ... and more | | All current F1 calendar circuits |
+| Circuit           | Country   | Key Characteristics                    |
+| ----------------- | --------- | -------------------------------------- |
+| Monaco            | Monaco    | High downforce, overtaking difficulty  |
+| Silverstone       | UK        | High-speed corners, tire degradation   |
+| Monza             | Italy     | Low downforce, slipstream importance   |
+| Spa-Francorchamps | Belgium   | Weather variability, elevation changes |
+| Singapore         | Singapore | Night race, tire conservation          |
+| Suzuka            | Japan     | Technical layout, compound strategy    |
+| ... and more      |           | All current F1 calendar circuits       |
 
-##  Performance Features
+## Performance Features
 
 ### Tire Degradation Modeling
+
 - **Compound Analysis**: Soft, Medium, Hard tire performance curves
 - **Track-Specific Data**: Circuit-dependent degradation rates
 - **Weather Integration**: Temperature and condition effects
 - **Predictive Modeling**: ML-based lap time predictions
 
 ### Race Strategy Optimization
+
 - **Pit Window Calculation**: Optimal timing considering traffic
 - **Undercut Probability**: Statistical analysis of successful undercuts
 - **Delta Analysis**: Time gained/lost calculations
 - **Risk Assessment**: Strategy confidence intervals
 
-##  Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -242,32 +269,34 @@ start https://f1-strategy-lab-production.up.railway.app/docs
 5. Open a Pull Request
 
 ### Development Guidelines
+
 - Follow TypeScript best practices
 - Maintain 90%+ test coverage
 - Use conventional commits
 - Update documentation for new features
 
-##  License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-##  Acknowledgments
+## Acknowledgments
 
 - **Formula 1**: For providing the inspiration and data
 - **FastF1**: For official F1 telemetry data access
 - **OpenF1**: For real-time race data API
 - **F1 Community**: For insights into racing strategy analysis
 
-##  Contact
+## Contact
 
 **Favour Adesiyan**
-- Portfolio: [your-portfolio.com](#)
-- LinkedIn: [linkedin.com/in/favour-adesiyan](#)
+
+- Portfolio: [https://next-js-portfolio-delta-lilac.vercel.app/](#)
+- LinkedIn: [https://www.linkedin.com/in/favourade](#)
 - Email: favouradesiyan2@gmail.com
 
 ---
 
-###  Project Highlights for Resume
+### Project Highlights for Resume
 
 **Technical Achievement**: Built a full-stack F1 strategy simulator with real-time data processing, machine learning models, and production deployment handling 1000+ concurrent users.
 
