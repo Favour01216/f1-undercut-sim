@@ -173,6 +173,24 @@ class PitModel:
 
         return samples if n > 1 else samples[0]
 
+    def sample_pit_time(self, rng: np.random.Generator | None = None) -> float:
+        """
+        Generate a single pit stop time loss sample.
+        
+        This is a convenience method that returns a single sample
+        from the pit stop time loss distribution.
+
+        Args:
+            rng: Random number generator for reproducible results (default: None)
+
+        Returns:
+            Single pit stop time loss in seconds
+
+        Raises:
+            RuntimeError: If model hasn't been fitted
+        """
+        return float(self.sample(n=1, rng=rng))
+
     def probability_faster_than(self, threshold: float) -> float:
         """
         Calculate probability that a pit stop will be faster than threshold.

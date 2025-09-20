@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { StrategyDashboard } from '@/components/StrategyDashboard';
+import F1Dashboard from "@/components/F1Dashboard";
 
 export default function Home() {
-  return <StrategyDashboard />;
+  return <F1Dashboard />;
 }

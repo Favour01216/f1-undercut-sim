@@ -1,0 +1,218 @@
+name: ci-docker
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "docker-compose*.yml"
+      - ".github/workflows/ci-docker.yml"
+      - "**/Dockerfile"
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "docker-compose*.yml"
+      - ".github/workflows/ci-docker.yml"
+      - "**/Dockerfile"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_BACKEND: ${{ github.repository }}-backend
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}-frontend
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: f1-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          load: true
+          tags: f1-frontend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test backend container startup
+        run: |
+          echo "Starting backend container..."
+          docker run -d --name test-backend \
+            -p 8001:8000 \
+            -e ENV=test \
+            -e OFFLINE=1 \
+            f1-backend:test
+
+          echo "Waiting for backend to be healthy..."
+          sleep 30
+
+          echo "Testing backend health endpoint..."
+          curl -f http://localhost:8001/ || (docker logs test-backend && exit 1)
+
+          echo "Backend smoke test passed!"
+          docker stop test-backend
+          docker rm test-backend
+
+      - name: Test frontend container startup
+        run: |
+          echo "Starting frontend container..."
+          docker run -d --name test-frontend \
+            -p 3001:3000 \
+            -e NODE_ENV=production \
+            -e NEXT_PUBLIC_API_URL=http://localhost:8001 \
+            f1-frontend:test
+
+          echo "Waiting for frontend to be ready..."
+          sleep 45
+
+          echo "Testing frontend health endpoint..."
+          curl -f http://localhost:3001/api/health || (docker logs test-frontend && exit 1)
+
+          echo "Frontend smoke test passed!"
+          docker stop test-frontend
+          docker rm test-frontend
+
+      - name: Test docker-compose stack
+        run: |
+          echo "Testing full stack with docker-compose..."
+
+          # Copy compose file and modify for testing
+          cp docker-compose.yml docker-compose.test.yml
+
+          # Replace image builds with local tags
+          sed -i 's|build:|image: f1-backend:test #build:|g' docker-compose.test.yml
+          sed -i 's|context: ./backend||g' docker-compose.test.yml
+          sed -i 's|dockerfile: Dockerfile||g' docker-compose.test.yml
+
+          # Start the stack
+          docker-compose -f docker-compose.test.yml up -d
+
+          echo "Waiting for stack to be healthy..."
+          sleep 60
+
+          # Test backend health
+          echo "Testing backend in stack..."
+          curl -f http://localhost:8000/ || (docker-compose -f docker-compose.test.yml logs && exit 1)
+
+          # Test frontend health  
+          echo "Testing frontend in stack..."
+          curl -f http://localhost:3000/api/health || (docker-compose -f docker-compose.test.yml logs && exit 1)
+
+          echo "Full stack smoke test passed!"
+
+          # Cleanup
+          docker-compose -f docker-compose.test.yml down
+          rm docker-compose.test.yml
+
+      - name: Push backend image (on main/develop)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push frontend image (on main/develop)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner on backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "f1-backend:test"
+          format: "sarif"
+          output: "backend-trivy-results.sarif"
+
+      - name: Upload Trivy scan results for backend
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: "backend-trivy-results.sarif"
+          category: "backend-container-scan"
+
+      - name: Run Trivy vulnerability scanner on frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "f1-frontend:test"
+          format: "sarif"
+          output: "frontend-trivy-results.sarif"
+
+      - name: Upload Trivy scan results for frontend
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: "frontend-trivy-results.sarif"
+          category: "frontend-container-scan"

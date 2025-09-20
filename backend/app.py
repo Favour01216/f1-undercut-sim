@@ -74,7 +74,7 @@ app = FastAPI(
 )
 
 # Configure CORS
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -351,7 +351,7 @@ def simulate_multi_lap_undercut(
         outlap_penalty_mean = outlap_penalties.get(compound_a, 1.4)
         outlap_penalty_std = 0.3
     else:
-        outlap_penalty_mean = outlap_model.sample(n=1)[0]
+        outlap_penalty_mean = outlap_model.sample(n=1)  # sample(n=1) returns float directly
         outlap_penalty_std = 0.3  # Standard deviation for outlap variation
     
     margins = []
@@ -572,7 +572,9 @@ async def simulate_undercut(request: SimulateRequest, req: Request) -> SimulateR
         return SimulateResponse(**response_data)
         
     except Exception as e:
+        import traceback
         logger.error(f"Multi-lap simulation failed: {e}", gp=request.gp, year=request.year, H=request.H)
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
         
     except Exception as e:

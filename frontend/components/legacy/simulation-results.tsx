@@ -140,7 +140,7 @@ export function SimulationResults({ result }: SimulationResultsProps) {
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-2 h-2 rounded-full ${
-                        result.assumptions.models_fitted.deg_model
+                        result.assumptions.models_fitted.degradation_model
                           ? "bg-green-500"
                           : "bg-red-500"
                       }`}

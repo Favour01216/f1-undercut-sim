@@ -1,0 +1,414 @@
+/**
+ * F1 Undercut Simulator - Racing Theme Styles
+ * F1-inspired design system with racing colors and dynamic elements
+ */
+
+/* ============================================================================
+   Global F1 Base Styles
+   ============================================================================ */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: #0c0c0c;
+  color: #ffffff;
+  font-family: var(--font-rajdhani), "Rajdhani", sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 50%, #0c0c0c 100%);
+  background-attachment: fixed;
+}
+
+/* ============================================================================
+   F1 Color Palette
+   ============================================================================ */
+:root {
+  /* F1 Primary Colors */
+  --f1-red: #e10600;
+  --f1-red-light: #ff3030;
+  --f1-red-dark: #b30000;
+
+  /* Racing Colors */
+  --racing-black: #0c0c0c;
+  --racing-white: #ffffff;
+  --racing-silver: #c8c8c8;
+  --racing-gold: #ffb000;
+
+  /* Team Colors */
+  --redbull-blue: #3671c6;
+  --ferrari-red: #f91536;
+  --mercedes-teal: #27f4d2;
+  --mclaren-orange: #ff8000;
+  --aston-green: #229971;
+
+  /* Track Colors */
+  --track-asphalt: #2a2a2a;
+  --track-kerb-red: #ff0000;
+  --track-kerb-white: #ffffff;
+  --track-grass: #2d5016;
+
+  /* Status Colors */
+  --flag-green: #00ff00;
+  --flag-yellow: #ffff00;
+  --flag-red: #ff0000;
+  --flag-checkered: #ffffff;
+
+  /* Gradients */
+  --gradient-speed: linear-gradient(
+    135deg,
+    var(--f1-red) 0%,
+    var(--racing-black) 100%
+  );
+  --gradient-pit: linear-gradient(
+    90deg,
+    var(--racing-silver) 0%,
+    var(--racing-white) 50%,
+    var(--racing-silver) 100%
+  );
+  --gradient-victory: linear-gradient(
+    45deg,
+    var(--racing-gold) 0%,
+    var(--racing-white) 50%,
+    var(--racing-gold) 100%
+  );
+}
+
+/* ============================================================================
+   F1 Typography
+   ============================================================================ */
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&display=swap");
+
+.f1-title {
+  font-family: "Orbitron", monospace;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  background: var(--gradient-speed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.f1-subtitle {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.f1-body {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 400;
+}
+
+.f1-number {
+  font-family: "Orbitron", monospace;
+  font-weight: 700;
+  font-feature-settings: "tnum";
+}
+
+/* ============================================================================
+   F1 Components
+   ============================================================================ */
+
+/* Speed Lines Animation */
+.speed-lines {
+  position: relative;
+  overflow: hidden;
+}
+
+.speed-lines::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--f1-red) 50%,
+    transparent 100%
+  );
+  animation: speed-line 2s infinite;
+}
+
+@keyframes speed-line {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Racing Stripe */
+.racing-stripe {
+  position: relative;
+}
+
+.racing-stripe::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--gradient-speed);
+  border-radius: 2px;
+}
+
+/* Pit Stop Card */
+.pit-card {
+  background: var(--racing-black);
+  border: 2px solid var(--racing-silver);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pit-card:hover {
+  border-color: var(--f1-red);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(225, 6, 0, 0.2);
+}
+
+.pit-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-pit);
+}
+
+/* F1 Button */
+.f1-button {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: var(--gradient-speed);
+  color: var(--racing-white);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.f1-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(225, 6, 0, 0.4);
+}
+
+.f1-button:active {
+  transform: translateY(0);
+}
+
+.f1-button:disabled {
+  background: var(--racing-silver);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Loading Animation */
+.f1-loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--racing-silver);
+  border-radius: 50%;
+  border-top-color: var(--f1-red);
+  animation: f1-spin 1s ease-in-out infinite;
+}
+
+@keyframes f1-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Circuit Select */
+.circuit-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.circuit-option:hover {
+  background: rgba(225, 6, 0, 0.1);
+  border-color: var(--f1-red);
+}
+
+.circuit-flag {
+  font-size: 24px;
+  width: 32px;
+  text-align: center;
+}
+
+.circuit-info {
+  flex: 1;
+}
+
+.circuit-name {
+  font-weight: 600;
+  color: var(--racing-white);
+  margin: 0;
+}
+
+.circuit-details {
+  font-size: 12px;
+  color: var(--racing-silver);
+  margin: 2px 0 0 0;
+}
+
+/* Driver Select */
+.driver-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.driver-team-color {
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+}
+
+.driver-info {
+  flex: 1;
+}
+
+.driver-name {
+  font-weight: 600;
+  color: var(--racing-white);
+  margin: 0;
+}
+
+.driver-details {
+  font-size: 12px;
+  color: var(--racing-silver);
+  margin: 2px 0 0 0;
+}
+
+.driver-number {
+  font-family: "Orbitron", monospace;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--racing-gold);
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Results Display */
+.result-metric {
+  text-align: center;
+  padding: 20px;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.result-metric.success {
+  background: linear-gradient(135deg, var(--flag-green) 0%, #00cc00 100%);
+  color: var(--racing-black);
+}
+
+.result-metric.warning {
+  background: linear-gradient(135deg, var(--flag-yellow) 0%, #ffcc00 100%);
+  color: var(--racing-black);
+}
+
+.result-metric.danger {
+  background: linear-gradient(135deg, var(--flag-red) 0%, #cc0000 100%);
+  color: var(--racing-white);
+}
+
+.result-value {
+  font-family: "Orbitron", monospace;
+  font-weight: 700;
+  font-size: 32px;
+  margin: 0;
+}
+
+.result-label {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 8px 0 0 0;
+}
+
+/* Tire Compound Indicators */
+.tire-soft {
+  background: var(--flag-red);
+  color: var(--racing-white);
+}
+
+.tire-medium {
+  background: var(--flag-yellow);
+  color: var(--racing-black);
+}
+
+.tire-hard {
+  background: var(--racing-white);
+  color: var(--racing-black);
+}
+
+.tire-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Background Pattern */
+.f1-background {
+  background: var(--racing-black);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--racing-silver) 1px,
+    transparent 0
+  );
+  background-size: 20px 20px;
+  background-attachment: fixed;
+}
+
+/* Checkered Flag Pattern */
+.checkered-flag {
+  background-image: linear-gradient(
+      45deg,
+      var(--racing-black) 25%,
+      var(--racing-white) 25%
+    ),
+    linear-gradient(-45deg, var(--racing-black) 25%, var(--racing-white) 25%),
+    linear-gradient(45deg, var(--racing-white) 75%, var(--racing-black) 75%),
+    linear-gradient(-45deg, var(--racing-white) 75%, var(--racing-black) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}

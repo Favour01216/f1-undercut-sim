@@ -1,0 +1,15 @@
+# Railway deployment configuration
+[build]
+  builder = "DOCKERFILE"
+  dockerfilePath = "backend/Dockerfile"
+  dockerContext = "backend"
+
+[deploy]
+  healthcheckPath = "/health"
+  healthcheckTimeout = 30
+  restartPolicyType = "ON_FAILURE"
+
+[env]
+  ENV = "production"
+  CORS_ORIGINS = "${{RAILWAY_STATIC_URL}}"
+  PORT = "${{PORT}}"

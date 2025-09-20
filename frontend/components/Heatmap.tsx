@@ -191,7 +191,9 @@ const LoadingState: React.FC = () => (
 // Main Component
 // ============================================================================
 
-export const Heatmap: React.FC<HeatmapProps> = memo(({ currentRequest }) => {
+export const Heatmap: React.FC<HeatmapProps> = memo(function Heatmap({
+  currentRequest,
+}) {
   // Create base request for heatmap (without samples)
   const baseRequest = useMemo(() => {
     if (!currentRequest) return null;

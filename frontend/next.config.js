@@ -7,6 +7,9 @@ const nextConfig = {
     instrumentationHook: true,
   },
 
+  // Enable standalone output for Docker
+  output: "standalone",
+
   // App Router is now stable in Next.js 14
   async rewrites() {
     return [

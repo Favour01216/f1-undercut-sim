@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Orbitron, Rajdhani } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toaster";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -7,6 +7,15 @@ import { ErrorLoggingProvider } from "@/components/ErrorLoggingProvider";
 import { ReactQueryProvider } from "@/components/ReactQueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  variable: "--font-orbitron",
+});
+const rajdhani = Rajdhani({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-rajdhani",
+});
 
 export const metadata: Metadata = {
   title: "F1 Undercut Strategy Dashboard | Monte Carlo Simulation",
@@ -51,7 +60,10 @@ export default function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="icon" type="image/png" href="/favicon.png" />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body
+        className={`${inter.className} ${orbitron.variable} ${rajdhani.variable}`}
+        suppressHydrationWarning
+      >
         <ReactQueryProvider>
           <ErrorLoggingProvider>
             <ErrorBoundary>

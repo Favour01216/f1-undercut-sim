@@ -1,55 +1,146 @@
 /**
  * F1 Undercut Simulator API Client
- * Production-grade typed API client with React Query integration
+ * Production-grade typed API client with Zod validation and React Query integration
  */
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { z } from "zod";
+
+// API URL configuration for different environments
+function getApiBaseUrl(): string {
+  // Client-side: use the public API URL or default to localhost
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_CLIENT_API_URL || "http://localhost:8000";
+  }
+
+  // Server-side: use internal Docker network or fallback to public URL
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_CLIENT_API_URL ||
+    "http://localhost:8000"
+  );
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 // ============================================================================
-// Types
+// Zod Schemas for Runtime Validation
 // ============================================================================
 
-export interface SimulationRequest {
-  gp: string;
-  year: number;
-  driver_a: string;
-  driver_b: string;
-  compound_a: string;
-  lap_now: number;
-  samples?: number;
-}
+// Grand Prix choices based on backend validation
+const GP_CHOICES = [
+  "bahrain",
+  "imola",
+  "monza",
+  "monaco",
+  "spain",
+  "canada",
+  "austria",
+  "silverstone",
+  "hungary",
+  "belgium",
+  "netherlands",
+  "italy",
+  "singapore",
+  "japan",
+  "qatar",
+  "usa",
+  "mexico",
+  "brazil",
+  "abu_dhabi",
+  "australia",
+  "china",
+  "azerbaijan",
+  "miami",
+  "france",
+  "portugal",
+  "russia",
+  "turkey",
+  "saudi_arabia",
+  "las_vegas",
+] as const;
 
-export interface SimulationResponse {
-  p_undercut: number;
-  pitLoss_s: number;
-  outLapDelta_s: number;
-  assumptions: {
-    current_gap_s: number;
-    tire_age_driver_b: number;
-    models_fitted: {
-      deg_model: boolean;
-      pit_model: boolean;
-      outlap_model: boolean;
-    };
-    monte_carlo_samples: number;
-    avg_degradation_penalty_s: number;
-    pit_loss_range: [number, number];
-    outlap_delta_range: [number, number];
-    compound_used: string;
-    success_margin_s: number;
-    [key: string]: any;
-  };
-}
+// Compound choices
+const COMPOUND_CHOICES = ["SOFT", "MEDIUM", "HARD"] as const;
 
-export interface BackendStatus {
-  message: string;
-  version: string;
-  health: string;
-  docs: string;
-  simulate: string;
-}
+// Request validation schema
+export const SimulationRequestSchema = z.object({
+  gp: z.enum(GP_CHOICES),
+  year: z.number().int().min(2020).max(2024),
+  driver_a: z.string().min(1).max(50),
+  driver_b: z.string().min(1).max(50),
+  compound_a: z.enum(COMPOUND_CHOICES),
+  lap_now: z.number().int().min(1).max(100),
+  samples: z.number().int().min(1).max(10000).optional().default(1000),
+  H: z.number().int().min(1).max(5).optional().default(2),
+  p_pit_next: z.number().min(0).max(1).optional().default(1.0),
+});
 
+// Models fitted sub-schema
+const ModelsFittedSchema = z.object({
+  degradation_model: z.boolean(),
+  pit_model: z.boolean(),
+  outlap_model: z.boolean(),
+});
+
+// Assumptions schema with flexible additional properties
+const AssumptionsSchema = z
+  .object({
+    current_gap_s: z.number(),
+    tire_age_driver_b: z.number(),
+    models_fitted: ModelsFittedSchema,
+    monte_carlo_samples: z.number().int(),
+    avg_degradation_penalty_s: z.number().optional(),
+    pit_loss_range: z.tuple([z.number(), z.number()]).optional(),
+    outlap_delta_range: z.tuple([z.number(), z.number()]).optional(),
+    compound_used: z.string().optional(),
+    success_margin_s: z.number().optional(),
+    gap_s: z.number().optional(),
+    tyre_age_b: z.number().optional(),
+    degradation_model: z.string().optional(),
+    pit_model: z.string().optional(),
+    outlap_model: z.string().optional(),
+  })
+  .catchall(z.any()); // Allow additional properties
+
+// Main response validation schema (SimOut equivalent)
+export const SimulationResponseSchema = z.object({
+  p_undercut: z.number().min(0).max(1),
+  pitLoss_s: z.number(),
+  outLapDelta_s: z.number(),
+  avgMargin_s: z.number().optional(),
+  expected_margin_s: z.number().optional(),
+  ci_low_s: z.number().optional(),
+  ci_high_s: z.number().optional(),
+  H_used: z.number().int().optional(),
+  assumptions: AssumptionsSchema,
+});
+
+// Backend status validation schema
+export const BackendStatusSchema = z.object({
+  message: z.string(),
+  version: z.string(),
+  health: z.string().optional(),
+  docs: z.string(),
+  simulate: z.string(),
+});
+
+// Heatmap data point schema
+export const HeatmapDataPointSchema = z.object({
+  gap: z.number(),
+  compound: z.enum(COMPOUND_CHOICES),
+  probability: z.number().min(0).max(1),
+});
+
+// ============================================================================
+// TypeScript Types (derived from Zod schemas)
+// ============================================================================
+
+export type SimulationRequest = z.infer<typeof SimulationRequestSchema>;
+export type SimulationResponse = z.infer<typeof SimulationResponseSchema>;
+export type BackendStatus = z.infer<typeof BackendStatusSchema>;
+export type HeatmapDataPoint = z.infer<typeof HeatmapDataPointSchema>;
+
+// Legacy interface for backward compatibility
 export interface SimulationSession {
   id: string;
   timestamp: Date;
@@ -57,14 +148,78 @@ export interface SimulationSession {
   response: SimulationResponse;
 }
 
-export interface HeatmapDataPoint {
-  gap: number;
-  compound: string;
-  probability: number;
+// ============================================================================
+// Custom Error Types
+// ============================================================================
+
+export class ApiValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly validationError: z.ZodError,
+    public readonly rawResponse?: any
+  ) {
+    super(message);
+    this.name = "ApiValidationError";
+  }
+
+  /**
+   * Get user-friendly error message for display in UI
+   */
+  getUserFriendlyMessage(): string {
+    const issues = this.validationError.issues;
+    if (issues.length === 0) return "Invalid response from server";
+
+    const firstIssue = issues[0];
+    const path = firstIssue.path.join(".");
+
+    switch (firstIssue.code) {
+      case "invalid_type":
+        return `Invalid data type for ${path}: expected ${firstIssue.expected}, got ${firstIssue.received}`;
+      case "too_small":
+        return `Value for ${path} is too small: minimum is ${firstIssue.minimum}`;
+      case "too_big":
+        return `Value for ${path} is too large: maximum is ${firstIssue.maximum}`;
+      case "invalid_enum_value":
+        return `Invalid value for ${path}: must be one of ${firstIssue.options?.join(
+          ", "
+        )}`;
+      default:
+        return `Invalid value for ${path}: ${firstIssue.message}`;
+    }
+  }
+}
+
+export class ApiNetworkError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly statusText?: string
+  ) {
+    super(message);
+    this.name = "ApiNetworkError";
+  }
+
+  getUserFriendlyMessage(): string {
+    if (this.status) {
+      switch (this.status) {
+        case 400:
+          return "Invalid request parameters. Please check your inputs.";
+        case 404:
+          return "API endpoint not found. Please contact support.";
+        case 500:
+          return "Server error. Please try again later.";
+        case 503:
+          return "Service unavailable. Please try again in a few minutes.";
+        default:
+          return `Server error (${this.status}). Please try again later.`;
+      }
+    }
+    return "Network error. Please check your connection and try again.";
+  }
 }
 
 // ============================================================================
-// API Client
+// API Client with Zod Validation
 // ============================================================================
 
 export class F1ApiClient {
@@ -75,34 +230,99 @@ export class F1ApiClient {
   }
 
   /**
-   * Check backend connectivity and status
+   * Parse and validate API response using Zod schema
    */
-  async checkStatus(): Promise<BackendStatus> {
-    const response = await fetch(`${this.baseUrl}/`);
-    if (!response.ok) {
-      throw new Error(`Backend status check failed: ${response.statusText}`);
+  private parseResponse<T>(
+    schema: z.ZodSchema<T>,
+    data: unknown,
+    endpoint: string
+  ): T {
+    try {
+      return schema.parse(data);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = `Invalid response from ${endpoint}`;
+        throw new ApiValidationError(message, error, data);
+      }
+      throw error;
     }
-    return response.json();
   }
 
   /**
-   * Run a single undercut simulation
+   * Perform validated fetch request
    */
-  async simulate(request: SimulationRequest): Promise<SimulationResponse> {
-    const response = await fetch(`${this.baseUrl}/simulate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
+  private async fetchWithValidation<T>(
+    url: string,
+    schema: z.ZodSchema<T>,
+    options?: RequestInit
+  ): Promise<T> {
+    let response: Response;
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Simulation failed: ${error}`);
+    try {
+      response = await fetch(url, options);
+    } catch (error) {
+      throw new ApiNetworkError(
+        `Network error when connecting to ${url}: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
 
-    return response.json();
+    if (!response.ok) {
+      let errorMessage: string;
+      try {
+        const errorText = await response.text();
+        errorMessage = errorText || response.statusText;
+      } catch {
+        errorMessage = response.statusText;
+      }
+
+      throw new ApiNetworkError(
+        `API request failed: ${errorMessage}`,
+        response.status,
+        response.statusText
+      );
+    }
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (error) {
+      throw new ApiNetworkError(
+        `Invalid JSON response from ${url}: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+
+    return this.parseResponse(schema, data, url);
+  }
+
+  /**
+   * Check backend connectivity and status
+   */
+  async checkStatus(): Promise<BackendStatus> {
+    return this.fetchWithValidation(`${this.baseUrl}/`, BackendStatusSchema);
+  }
+
+  /**
+   * Run a single undercut simulation with validated input/output
+   */
+  async simulate(request: SimulationRequest): Promise<SimulationResponse> {
+    // Validate request before sending
+    const validatedRequest = SimulationRequestSchema.parse(request);
+
+    return this.fetchWithValidation(
+      `${this.baseUrl}/simulate`,
+      SimulationResponseSchema,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(validatedRequest),
+      }
+    );
   }
 
   /**
@@ -115,7 +335,7 @@ export class F1ApiClient {
       max: 30,
       step: 2,
     },
-    compounds: string[] = ["SOFT", "MEDIUM", "HARD"],
+    compounds: (typeof COMPOUND_CHOICES)[number][] = ["SOFT", "MEDIUM", "HARD"],
     samples: number = 500
   ): Promise<HeatmapDataPoint[]> {
     const results: HeatmapDataPoint[] = [];
@@ -138,11 +358,15 @@ export class F1ApiClient {
 
         const promise = this.simulate(request)
           .then((response) => {
-            results.push({
+            const dataPoint: HeatmapDataPoint = {
               gap,
               compound,
               probability: response.p_undercut,
-            });
+            };
+
+            // Validate the data point
+            const validatedPoint = HeatmapDataPointSchema.parse(dataPoint);
+            results.push(validatedPoint);
           })
           .catch((error) => {
             console.warn(
@@ -150,11 +374,12 @@ export class F1ApiClient {
               error
             );
             // Add a default value for failed simulations
-            results.push({
+            const fallbackPoint: HeatmapDataPoint = {
               gap,
               compound,
               probability: 0,
-            });
+            };
+            results.push(fallbackPoint);
           });
 
         promises.push(promise);
@@ -243,22 +468,80 @@ export const getSuccessLikelihood = (
 };
 
 /**
- * Validate simulation request
+ * Validate simulation request using Zod schema
  */
 export const validateSimulationRequest = (
   request: Partial<SimulationRequest>
-): string[] => {
-  const errors: string[] = [];
+): { isValid: boolean; errors: string[]; data?: SimulationRequest } => {
+  try {
+    const validatedData = SimulationRequestSchema.parse(request);
+    return { isValid: true, errors: [], data: validatedData };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors = error.issues.map((issue) => {
+        const path = issue.path.join(".");
+        switch (issue.code) {
+          case "invalid_type":
+            return `${path}: expected ${issue.expected}, got ${issue.received}`;
+          case "too_small":
+            if (issue.type === "string") {
+              return `${path}: must be at least ${issue.minimum} characters`;
+            }
+            return `${path}: must be at least ${issue.minimum}`;
+          case "too_big":
+            if (issue.type === "string") {
+              return `${path}: must be at most ${issue.maximum} characters`;
+            }
+            return `${path}: must be at most ${issue.maximum}`;
+          case "invalid_enum_value":
+            return `${path}: must be one of ${issue.options?.join(", ")}`;
+          default:
+            return `${path}: ${issue.message}`;
+        }
+      });
+      return { isValid: false, errors };
+    }
+    return { isValid: false, errors: ["Unknown validation error"] };
+  }
+};
 
-  if (!request.gp) errors.push("Grand Prix is required");
-  if (!request.year) errors.push("Year is required");
-  if (!request.driver_a) errors.push("Driver A is required");
-  if (!request.driver_b) errors.push("Driver B is required");
-  if (!request.compound_a) errors.push("Compound is required");
-  if (request.lap_now === undefined || request.lap_now < 1)
-    errors.push("Current lap must be greater than 0");
-  if (request.samples !== undefined && request.samples < 100)
-    errors.push("Samples must be at least 100");
+/**
+ * Handle API errors gracefully with user-friendly messages
+ */
+export const handleApiError = (
+  error: unknown
+): {
+  message: string;
+  isUserFriendly: boolean;
+  originalError: unknown;
+} => {
+  if (error instanceof ApiValidationError) {
+    return {
+      message: error.getUserFriendlyMessage(),
+      isUserFriendly: true,
+      originalError: error,
+    };
+  }
 
-  return errors;
+  if (error instanceof ApiNetworkError) {
+    return {
+      message: error.getUserFriendlyMessage(),
+      isUserFriendly: true,
+      originalError: error,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      isUserFriendly: false,
+      originalError: error,
+    };
+  }
+
+  return {
+    message: "An unexpected error occurred. Please try again.",
+    isUserFriendly: true,
+    originalError: error,
+  };
 };

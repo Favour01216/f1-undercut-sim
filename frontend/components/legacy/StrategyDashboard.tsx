@@ -10,11 +10,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { SimulationRequest, SimulationSession, generateSessionId } from '@/lib/api';
 import { SimulationForm } from './SimulationForm';
-import { ResultCards } from './ResultCards';
-import { Heatmap } from './Heatmap';
-import { HistoryTable } from './HistoryTable';
-import { BackendStatusBanner } from './BackendStatusBanner';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { ResultCards } from '../ResultCards';
+import { Heatmap } from '../Heatmap';
+import { HistoryTable } from '../HistoryTable';
+import { BackendStatusBanner } from '../BackendStatusBanner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // Create query client instance
 const queryClient = new QueryClient({

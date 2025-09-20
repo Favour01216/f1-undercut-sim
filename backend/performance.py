@@ -198,7 +198,24 @@ class SimulationCache:
             self.cache.clear()
             self.hit_count = 0
             self.miss_count = 0
-            self.metrics.request_times.clear()
+    
+    def __contains__(self, key: str) -> bool:
+        """Check if a key exists in the cache (enables 'in' operator)."""
+        with self.lock:
+            return key in self.cache
+    
+    def __getitem__(self, key: str) -> Dict[str, Any]:
+        """Get item from cache (enables cache[key] syntax)."""
+        with self.lock:
+            result = self.cache.get(key)
+            if result is None:
+                raise KeyError(f"Cache key not found: {key}")
+            return result
+    
+    def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
+        """Set item in cache (enables cache[key] = value syntax)."""
+        with self.lock:
+            self.cache[key] = value
 
 
 # Global cache instance

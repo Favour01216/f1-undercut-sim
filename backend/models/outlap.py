@@ -14,7 +14,7 @@ from scipy import stats
 from collections import defaultdict
 from dataclasses import dataclass
 
-from backend.services.model_params import ModelParametersManager
+from services.model_params import ModelParametersManager
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +301,7 @@ class OutlapModel:
     def _save_parameters(self) -> None:
         """Save fitted parameters to storage."""
         try:
-            from backend.services.model_params import OutlapParameters
+            from services.model_params import OutlapParameters
             
             params = OutlapParameters(
                 circuit=self.circuit,

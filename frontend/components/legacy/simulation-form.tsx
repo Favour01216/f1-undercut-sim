@@ -26,21 +26,25 @@ import { SimulationResults } from "@/components/simulation-results";
 import { useSimulateMutation } from "@/lib/hooks";
 import {
   type SimulationRequest,
+  type SimulationResponse,
+  SimulationRequestSchema,
+} from "@/lib/api";
+import {
   GRAND_PRIX_OPTIONS,
   DRIVER_OPTIONS,
   TIRE_COMPOUNDS,
   YEAR_OPTIONS,
 } from "@/types/simulation";
-import { type SimulationResponse } from "@/lib/api";
 
-const simulationSchema = z.object({
-  gp: z.string().min(1, "Please select a Grand Prix"),
-  year: z.number().min(2020).max(2024),
-  driver_a: z.string().min(1, "Please select Driver A"),
-  driver_b: z.string().min(1, "Please select Driver B"),
-  compound_a: z.enum(["SOFT", "MEDIUM", "HARD"]),
-  lap_now: z.number().min(1).max(100, "Lap must be between 1 and 100"),
-  samples: z.number().min(100).max(10000).optional().default(1000),
+// Extract only the form fields from the API schema for consistency
+const simulationSchema = SimulationRequestSchema.pick({
+  gp: true,
+  year: true,
+  driver_a: true,
+  driver_b: true,
+  compound_a: true,
+  lap_now: true,
+  samples: true,
 });
 
 type SimulationFormData = z.infer<typeof simulationSchema>;
@@ -49,13 +53,16 @@ export function SimulationForm() {
   const [result, setResult] = useState<SimulationResponse | null>(null);
   const [lastSubmission, setLastSubmission] = useState<Date | null>(null);
 
+  // Debug: Alert when component loads
+  console.log("SimulationForm component loaded");
+
   const form = useForm<SimulationFormData>({
     resolver: zodResolver(simulationSchema),
     defaultValues: {
-      gp: "",
+      gp: "bahrain", // Use a valid enum value instead of empty string
       year: 2024,
-      driver_a: "",
-      driver_b: "",
+      driver_a: "VER", // Default to a valid driver
+      driver_b: "LEC", // Default to a valid driver
       compound_a: "MEDIUM",
       lap_now: 25,
       samples: 1000,
@@ -77,9 +84,22 @@ export function SimulationForm() {
         setLastSubmission(now);
 
         try {
-          const result = await simulateMutation.mutateAsync(
-            data as SimulationRequest
-          );
+          // Create a complete simulation request with all required fields
+          const simulationRequest: SimulationRequest = {
+            gp: data.gp,
+            year: data.year,
+            driver_a: data.driver_a,
+            driver_b: data.driver_b,
+            compound_a: data.compound_a,
+            lap_now: data.lap_now,
+            samples: data.samples || 1000,
+            H: 2, // Default horizon value
+            p_pit_next: 1.0, // Default pit probability
+          };
+
+          console.log("Submitting simulation request:", simulationRequest);
+          const result = await simulateMutation.mutateAsync(simulationRequest);
+          console.log("Received simulation result:", result);
           setResult(result);
         } catch (error) {
           // Error handling is done by React Query
@@ -92,29 +112,43 @@ export function SimulationForm() {
   // Memoized submit handler
   const onSubmit = useCallback(
     (data: SimulationFormData) => {
+      alert("Form submitted! Check console for details.");
+      console.log("Form submitted with data:", data);
+      console.log("Form errors:", form.formState.errors);
+      console.log("Form is valid:", form.formState.isValid);
       debouncedSubmit(data);
     },
-    [debouncedSubmit]
+    [debouncedSubmit, form.formState.errors, form.formState.isValid]
   );
 
   // Memoized derived state
   const isLoading = simulateMutation.isPending;
   const error = simulateMutation.error?.message || null;
 
+  // Debug form state
+  console.log("Current form errors:", form.formState.errors);
+  console.log("Form is valid:", form.formState.isValid);
+  console.log("Current form values:", form.getValues());
+
+  // Watch form values for memoization
+  const driverAValue = form.watch("driver_a");
+  const driverBValue = form.watch("driver_b");
+  const gpValue = form.watch("gp");
+
   // Memoized selected options for performance
   const selectedDriverA = useMemo(
-    () => DRIVER_OPTIONS.find((d) => d.id === form.watch("driver_a")),
-    [form.watch("driver_a")]
+    () => DRIVER_OPTIONS.find((d) => d.id === driverAValue),
+    [driverAValue]
   );
 
   const selectedDriverB = useMemo(
-    () => DRIVER_OPTIONS.find((d) => d.id === form.watch("driver_b")),
-    [form.watch("driver_b")]
+    () => DRIVER_OPTIONS.find((d) => d.id === driverBValue),
+    [driverBValue]
   );
 
   const selectedGP = useMemo(
-    () => GRAND_PRIX_OPTIONS.find((gp) => gp.id === form.watch("gp")),
-    [form.watch("gp")]
+    () => GRAND_PRIX_OPTIONS.find((gp) => gp.id === gpValue),
+    [gpValue]
   );
 
   return (
@@ -136,7 +170,7 @@ export function SimulationForm() {
               <label className="text-sm font-medium">Grand Prix</label>
               <Select
                 value={form.watch("gp")}
-                onValueChange={(value) => form.setValue("gp", value)}
+                onValueChange={(value) => form.setValue("gp", value as any)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a Grand Prix" />
@@ -384,8 +418,8 @@ export function SimulationForm() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-6xl mb-4">📊</div>
               <p className="text-muted-foreground text-center">
-                Configure your simulation parameters and click &quot;Run Simulation&quot;
-                to see the undercut probability analysis
+                Configure your simulation parameters and click &quot;Run
+                Simulation&quot; to see the undercut probability analysis
               </p>
             </CardContent>
           </Card>
