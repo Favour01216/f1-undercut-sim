@@ -1,211 +1,556 @@
-# 🏎️ F1 Undercut Simulator
+# 🏎️ F1 Undercut Simulator# 🏎️ F1 Undercut Simulator
 
-[![ci-backend](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-backend.yml/badge.svg)](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-backend.yml)
-[![ci-frontend](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-frontend.yml/badge.svg)](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-frontend.yml)
-[![ci-docker](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-docker.yml/badge.svg)](https://github.com/Favour01216/f1-undercut-sim/actions/workflows/ci-docker.yml)
-[![codecov](https://codecov.io/gh/Favour01216/f1-undercut-sim/branch/main/graph/badge.svg)](https://codecov.io/gh/Favour01216/f1-undercut-sim)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-**A comprehensive Formula 1 undercut simulation tool** that combines real-time F1 data with advanced statistical modeling to predict the success probability of undercut pit strategies. Built with FastAPI, Next.js, and powered by real F1 telemetry data from OpenF1 and Jolpica APIs.
 
-## 📖 Project Description
+A sophisticated full-stack web application for Formula 1 race strategy analysis, featuring real-time undercut probability calculations, tire degradation modeling, and pit stop optimization.A sophisticated full-stack web application for Formula 1 race strategy analysis, featuring real-time undercut probability calculations, tire degradation modeling, and pit stop optimization.
 
-The F1 Undercut Simulator revolutionizes pit strategy analysis by providing data-driven insights into one of Formula 1's most critical tactical decisions. By leveraging machine learning models trained on real F1 data, this tool calculates undercut probabilities with unprecedented accuracy, helping teams and fans understand the complex mathematics behind successful pit strategies. The system integrates tire degradation physics, pit stop variability, and cold tire performance penalties into a unified Monte Carlo simulation framework.
 
-## 🤖 Data-Driven Modeling Architecture
 
-### Enhanced Statistical Models
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-f1simulator--six.vercel.app-blue?style=for-the-badge)](https://f1simulator-six.vercel.app)[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-f1simulator--six.vercel.app-blue?style=for-the-badge)](https://f1simulator-six.vercel.app)
+
+[![API Docs](https://img.shields.io/badge/📚_API_Docs-FastAPI-green?style=for-the-badge)](https://f1-strategy-lab-production.up.railway.app/docs)[![API Docs](https://img.shields.io/badge/📚_API_Docs-FastAPI-green?style=for-the-badge)](https://f1-strategy-lab-production.up.railway.app/docs)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
+
+
+
+**A comprehensive Formula 1 undercut simulation tool** that combines real-time F1 data with advanced statistical modeling to predict the success probability of undercut pit strategies. Built with FastAPI, Next.js, and powered by real F1 telemetry data from OpenF1 and FastF1 APIs.**A comprehensive Formula 1 undercut simulation tool** that combines real-time F1 data with advanced statistical modeling to predict the success probability of undercut pit strategies. Built with FastAPI, Next.js, and powered by real F1 telemetry data from OpenF1 and FastF1 APIs.
+
+
+
+## 📸 Screenshots## 📸 Screenshots
+
+
+
+### Main Dashboard### Main Dashboard
+
+![F1 Simulator Dashboard](images/screenshots/dashboard.png)![F1 Simulator Dashboard](images/screenshots/dashboard.png)
+
+*Interactive F1 strategy simulation interface with tire compound selection and circuit analysis**Interactive F1 strategy simulation interface with tire compound selection and circuit analysis*
+
+
+
+### Undercut Analysis### Undercut Analysis
+
+![Undercut Simulation](images/screenshots/undercut-analysis.png)![Undercut Simulation](images/screenshots/undercut-analysis.png)
+
+*Real-time undercut probability calculations with visual strategy recommendations**Real-time undercut probability calculations with visual strategy recommendations*
+
+
+
+### Race Strategy Comparison### Race Strategy Comparison
+
+![Strategy Comparison](images/screenshots/strategy-comparison.png)![Strategy Comparison](images/screenshots/strategy-comparison.png)
+
+*Side-by-side driver performance analysis with tire degradation insights**Side-by-side driver performance analysis with tire degradation insights*
+
+
+
+## 🚀 Features## 🚀 Features
+
+
+
+### 🏁 Core Racing Features### 🏁 Core Racing Features
+
+- **Real-time Undercut Analysis**: Calculate probability of successful undercuts based on current race conditions- **Real-time Undercut Analysis**: Calculate probability of successful undercuts based on current race conditions
+
+- **Tire Strategy Optimization**: Compare Soft, Medium, and Hard compound strategies with degradation modeling- **Tire Strategy Optimization**: Compare Soft, Medium, and Hard compound strategies with degradation modeling
+
+- **Pit Window Analysis**: Identify optimal pit stop timing with traffic and delta considerations- **Pit Window Analysis**: Identify optimal pit stop timing with traffic and delta considerations
+
+- **Multi-Circuit Support**: All current F1 circuits with track-specific data and telemetry- **Multi-Circuit Support**: All current F1 circuits with track-specific data and telemetry
+
+- **Driver Performance Comparison**: Analyze pace differentials between any two drivers- **Driver Performance Comparison**: Analyze pace differentials between any two drivers
+
+
+
+### 📊 Technical Capabilities### 📊 Technical Capabilities
+
+- **Live F1 Data Integration**: Real-time race data via OpenF1 API- **Live F1 Data Integration**: Real-time race data via OpenF1 API
+
+- **FastF1 Telemetry**: Enhanced data with official F1 timing and telemetry- **FastF1 Telemetry**: Enhanced data with official F1 timing and telemetry
+
+- **Machine Learning Models**: Predictive tire degradation and lap time modeling- **Machine Learning Models**: Predictive tire degradation and lap time modeling
+
+- **Historical Analysis**: Access to race data from multiple seasons- **Historical Analysis**: Access to race data from multiple seasons
+
+- **Cache Optimization**: Smart data caching for improved performance- **Cache Optimization**: Smart data caching for improved performance
+
+
+
+### 🎨 User Experience### 🎨 User Experience
+
+- **F1-Themed Design**: Racing-inspired UI with authentic Formula 1 aesthetics- **F1-Themed Design**: Racing-inspired UI with authentic Formula 1 aesthetics
+
+- **Responsive Interface**: Optimized for desktop and mobile devices- **Responsive Interface**: Optimized for desktop and mobile devices
+
+- **Real-time Updates**: Live simulation results with interactive visualizations- **Real-time Updates**: Live simulation results with interactive visualizations
+
+- **Intuitive Controls**: Easy-to-use forms for complex race strategy analysis- **Intuitive Controls**: Easy-to-use forms for complex race strategy analysis
+
+
+
+## 🏗️ Architecture## 🏗️ Architecture
+
+
+
+### System Overview### System Overview
+
+``````
+
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+
+│   Frontend      │    │    Backend      │    │  External APIs  ││   Frontend      │    │    Backend      │    │  External APIs  │
+
+│   (Next.js)     │◄──►│   (FastAPI)     │◄──►│    OpenF1      ││   (Next.js)     │◄──►│   (FastAPI)     │◄──►│    OpenF1      │
+
+│   Vercel        │    │   Railway       │    │    FastF1      ││   Vercel        │    │   Railway       │    │    FastF1      │
+
+└─────────────────┘    └─────────────────┘    └─────────────────┘└─────────────────┘    └─────────────────┘    └─────────────────┘
+
+``````
+
+
+
+![Architecture Diagram](images/architecture/system-overview.png)![Architecture Diagram](images/architecture/system-overview.png)
+
+
+
+### Technology Stack### Technology Stack
+
+
+
+#### Frontend#### Frontend
+
+- **Framework**: Next.js 14.2.32 with React 18- **Framework**: Next.js 14.2.32 with React 18
+
+- **Styling**: Tailwind CSS with custom F1 theming- **Styling**: Tailwind CSS with custom F1 theming
+
+- **State Management**: React Query for server state- **State Management**: React Query for server state
+
+- **TypeScript**: Full type safety with Zod validation- **TypeScript**: Full type safety with Zod validation
+
+- **Deployment**: Vercel with edge optimization- **Deployment**: Vercel with edge optimization
+
+
+
+#### Backend#### Backend
+
+- **Framework**: FastAPI with Python 3.11- **Framework**: FastAPI with Python 3.11
+
+- **Data Processing**: Pandas, NumPy for race analysis- **Data Processing**: Pandas, NumPy for race analysis
+
+- **ML Models**: Scikit-learn for predictive modeling- **ML Models**: Scikit-learn for predictive modeling
+
+- **Caching**: Smart data caching with FastF1 integration- **Caching**: Smart data caching with FastF1 integration
+
+- **Deployment**: Railway with Docker containerization- **Deployment**: Railway with Docker containerization
+
+
+
+#### Data Sources#### Data Sources
+
+- **OpenF1 API**: Real-time race data and telemetry- **OpenF1 API**: Real-time race data and telemetry
+
+- **FastF1**: Official F1 timing data and lap analysis- **FastF1**: Official F1 timing data and lap analysis
+
+- **Custom Models**: Tire degradation and performance algorithms- **Custom Models**: Tire degradation and performance algorithms
+
+
+
+## 🛠️ Installation & Setup## 📖 Project Description
+
+
+
+### PrerequisitesThe F1 Undercut Simulator revolutionizes pit strategy analysis by providing data-driven insights into one of Formula 1's most critical tactical decisions. By leveraging machine learning models trained on real F1 data, this tool calculates undercut probabilities with unprecedented accuracy, helping teams and fans understand the complex mathematics behind successful pit strategies. The system integrates tire degradation physics, pit stop variability, and cold tire performance penalties into a unified Monte Carlo simulation framework.
+
+```bash
+
+Node.js 18+## 🤖 Data-Driven Modeling Architecture
+
+Python 3.11+
+
+Docker (optional)### Enhanced Statistical Models
+
+```
 
 The simulator employs sophisticated **data-driven models** that learn circuit and compound-specific parameters from historical F1 data, eliminating hard-coded assumptions and providing more accurate predictions.
 
+### Local Development
+
 #### **DegModel - Advanced Tire Degradation**
 
-- **Method**: Robust quadratic regression with Huber loss
-- **Features**: Circuit and compound-specific learning
-- **Model**: `lap_delta = a*age² + b*age + c` with outlier resistance
-- **Validation**: K-fold cross-validation for reliability assessment
-- **Fallback Hierarchy**: Circuit+compound → compound → global models
+#### Backend Setup
 
-```python
-# Circuit-specific model for Monaco with soft tires
+```bash- **Method**: Robust quadratic regression with Huber loss
+
+cd backend- **Features**: Circuit and compound-specific learning
+
+python -m venv .venv- **Model**: `lap_delta = a*age² + b*age + c` with outlier resistance
+
+# Windows: .venv\Scripts\activate- **Validation**: K-fold cross-validation for reliability assessment
+
+# Linux/Mac: source .venv/bin/activate- **Fallback Hierarchy**: Circuit+compound → compound → global models
+
+pip install -r requirements.txt
+
+uvicorn app:app --reload --port 8000```python
+
+```# Circuit-specific model for Monaco with soft tires
+
 model = DegModel(circuit='MONACO', compound='SOFT')
-model.fit_from_data(monaco_lap_data)
 
-# Get fresh tire advantage (data-driven, no hard-coded bonuses)
-advantage = model.get_fresh_tire_advantage(old_age=15, new_age=2)
-# Returns: e.g., 3.2 seconds advantage for Monaco soft tires
-```
+#### Frontend Setupmodel.fit_from_data(monaco_lap_data)
 
-#### **OutlapModel - Learned Cold Tire Penalties**
+```bash
 
-- **Method**: Statistical analysis of outlap vs warmed lap performance
-- **Features**: Circuit and compound-specific penalty distributions
+cd frontend# Get fresh tire advantage (data-driven, no hard-coded bonuses)
+
+npm installadvantage = model.get_fresh_tire_advantage(old_age=15, new_age=2)
+
+npm run dev# Returns: e.g., 3.2 seconds advantage for Monaco soft tires
+
+``````
+
+
+
+### Docker Setup#### **OutlapModel - Learned Cold Tire Penalties**
+
+```bash
+
+docker-compose up --build- **Method**: Statistical analysis of outlap vs warmed lap performance
+
+```- **Features**: Circuit and compound-specific penalty distributions
+
 - **Learning**: Analyzes stint lap 1 (outlap) vs laps 3+ (warmed)
-- **Output**: Learned penalty distributions, not fixed values
 
-```python
-# Learn circuit-specific outlap penalties
-model = OutlapModel(circuit='SPA', compound='MEDIUM')
-model.fit_from_data(spa_outlap_data)
+### Environment Variables- **Output**: Learned penalty distributions, not fixed values
 
-# Sample realistic penalties based on learned data
-penalty = model.sample(n=1)  # e.g., 1.8s for Spa medium tires
+
+
+#### Backend (.env)```python
+
+```env# Learn circuit-specific outlap penalties
+
+OPENF1_API_URL=https://api.openf1.org/v1model = OutlapModel(circuit='SPA', compound='MEDIUM')
+
+CORS_ORIGINS=http://localhost:3000,https://your-frontend-domain.commodel.fit_from_data(spa_outlap_data)
+
+ENV=development
+
+OFFLINE=false# Sample realistic penalties based on learned data
+
+```penalty = model.sample(n=1)  # e.g., 1.8s for Spa medium tires
+
 ```
 
-#### **ModelParametersManager - Intelligent Parameter Persistence**
+#### Frontend (.env.local)
 
-- **Storage**: Parquet files in `features/model_params/`
-- **Scope Hierarchy**: Circuit+compound specific → compound-only → global
+```env#### **ModelParametersManager - Intelligent Parameter Persistence**
+
+NEXT_PUBLIC_CLIENT_API_URL=http://localhost:8000
+
+NEXT_PUBLIC_APP_URL=http://localhost:3000- **Storage**: Parquet files in `features/model_params/`
+
+```- **Scope Hierarchy**: Circuit+compound specific → compound-only → global
+
 - **Schema**: Structured dataclasses for degradation and outlap parameters
-- **Fallback**: Automatic fallback to broader scopes when specific data unavailable
 
-```python
+## 📚 API Documentation- **Fallback**: Automatic fallback to broader scopes when specific data unavailable
+
+
+
+### Key Endpoints```python
+
 # Automatic parameter loading with intelligent fallback
-manager = ModelParametersManager()
 
-# Try: Monaco + SOFT → SOFT only → Global → Default
-params = manager.get_degradation_params(circuit='MONACO', compound='SOFT')
+#### Simulationmanager = ModelParametersManager()
+
+```http
+
+POST /simulate# Try: Monaco + SOFT → SOFT only → Global → Default
+
+Content-Type: application/jsonparams = manager.get_degradation_params(circuit='MONACO', compound='SOFT')
+
 ```
 
-### **Elimination of Hard-Coded Biases**
+{
 
-✅ **Removed**: Fixed compound bonuses (`{'SOFT': 1.5, 'MEDIUM': 0.5, 'HARD': 0.0}`)  
-✅ **Removed**: Arbitrary base advantages (`base_advantage = 3.0`)  
-✅ **Removed**: Static outlap penalties (`{'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}`)
+  "circuit": "monaco",### **Elimination of Hard-Coded Biases**
 
-✨ **Replaced With**: Circuit and compound-specific parameters learned from real F1 data using robust statistical methods.
+  "driver_a": "Max Verstappen",
 
-## 🏁 Multi-Lap Undercut Simulation
+  "driver_b": "Charles Leclerc",✅ **Removed**: Fixed compound bonuses (`{'SOFT': 1.5, 'MEDIUM': 0.5, 'HARD': 0.0}`)  
 
-### **Advanced Multi-Lap Strategy Modeling**
+  "compound_a": "soft",✅ **Removed**: Arbitrary base advantages (`base_advantage = 3.0`)  
 
-The simulator now supports **multi-lap undercut scenarios** that model realistic strategy battles over H laps instead of single-lap comparisons. This provides more accurate insights into how undercuts actually unfold in races.
+  "compound_b": "medium",✅ **Removed**: Static outlap penalties (`{'SOFT': 0.5, 'MEDIUM': 1.2, 'HARD': 2.0}`)
+
+  "current_lap": 15,
+
+  "session": "race"✨ **Replaced With**: Circuit and compound-specific parameters learned from real F1 data using robust statistical methods.
+
+}
+
+```## 🏁 Multi-Lap Undercut Simulation
+
+
+
+#### Health Check### **Advanced Multi-Lap Strategy Modeling**
+
+```http
+
+GET /healthThe simulator now supports **multi-lap undercut scenarios** that model realistic strategy battles over H laps instead of single-lap comparisons. This provides more accurate insights into how undercuts actually unfold in races.
+
+```
 
 #### **Key Features**
 
-- **🕐 Configurable Horizon (H)**: Simulate undercuts over 1-5 laps (default: 2)
-- **🎲 Strategic Response Modeling**: Configurable probability for opponent pit responses
-- **📊 Enhanced Statistics**: 90% confidence intervals and scenario distributions
+#### Available Circuits
+
+```http- **🕐 Configurable Horizon (H)**: Simulate undercuts over 1-5 laps (default: 2)
+
+GET /circuits- **🎲 Strategic Response Modeling**: Configurable probability for opponent pit responses
+
+```- **📊 Enhanced Statistics**: 90% confidence intervals and scenario distributions
+
 - **🔄 Stochastic Simulation**: Per-lap degradation with Monte Carlo variation
 
-#### **Multi-Lap Simulation Logic**
+### Response Format
 
-```python
-# At t0: Driver A pits (incurs pit loss + outlap penalty)
-# Driver B decision: Stay out or respond (probability p_pit_next)
+```json#### **Multi-Lap Simulation Logic**
 
-# Scenario 1: B stays out (1 - p_pit_next)
-for lap in range(1, H+1):
-    A_time = fresh_tire_performance(age=lap) + residual
+{
+
+  "undercut_probability": 0.73,```python
+
+  "time_delta": 1.2,# At t0: Driver A pits (incurs pit loss + outlap penalty)
+
+  "optimal_pit_lap": 18,# Driver B decision: Stay out or respond (probability p_pit_next)
+
+  "strategy_recommendation": "Execute undercut on lap 18",
+
+  "confidence": 0.85# Scenario 1: B stays out (1 - p_pit_next)
+
+}for lap in range(1, H+1):
+
+```    A_time = fresh_tire_performance(age=lap) + residual
+
     B_time = old_tire_performance(age=initial_age+lap) + residual
 
+## 🧪 Testing
+
 # Scenario 2: B pits on lap 1 (p_pit_next)
-lap_1_B = old_tire_time + pit_loss + outlap_penalty
-for lap in range(2, H+1):
-    A_time = fresh_tire_performance(age=lap) + residual
-    B_time = fresh_tire_performance(age=lap-1) + residual
-```
 
-#### **API Enhancement (Backward Compatible)**
+### Backend Testslap_1_B = old_tire_time + pit_loss + outlap_penalty
 
-```json
-{
-  "gp": "bahrain",
-  "year": 2024,
-  "driver_a": "44",
-  "driver_b": "1",
-  "compound_a": "MEDIUM",
-  "lap_now": 25,
-  "H": 3, // NEW: Laps to simulate (1-5)
-  "p_pit_next": 0.7, // NEW: B pit response probability (0-1)
-  "samples": 1000
-}
-```
+```bashfor lap in range(2, H+1):
 
-**Response includes confidence intervals and scenario breakdowns:**
+cd backend    A_time = fresh_tire_performance(age=lap) + residual
 
-```json
-{
-  "p_undercut": 0.68,
-  "expected_margin_s": 1.8,
-  "ci_low_s": -0.5, // 90% CI lower bound
-  "ci_high_s": 4.1, // 90% CI upper bound
-  "H_used": 3,
-  "assumptions": {
-    "scenario_distribution": {
-      // Strategy breakdown
-      "b_stays_out": 300,
-      "b_pits_lap1": 700
-    }
-  }
-}
-```
+pytest tests/ -v --cov=app    B_time = fresh_tire_performance(age=lap-1) + residual
 
-## 🚀 Quickstart
+``````
 
-### 🐳 Docker Setup (Recommended)
 
-**Requirements**: Docker 20.10+, Docker Compose 2.0+
+
+### Frontend Tests#### **API Enhancement (Backward Compatible)**
 
 ```bash
-# Clone repository
-git clone https://github.com/Favour01216/f1-undercut-sim.git
-cd f1-undercut-sim
 
-# Build and start all services
-./scripts/docker-dev.sh build
+cd frontend```json
+
+npm run test{
+
+npm run test:e2e  "gp": "bahrain",
+
+```  "year": 2024,
+
+  "driver_a": "44",
+
+### API Testing  "driver_b": "1",
+
+```bash  "compound_a": "MEDIUM",
+
+# Test health endpoint  "lap_now": 25,
+
+curl https://f1-strategy-lab-production.up.railway.app/health  "H": 3, // NEW: Laps to simulate (1-5)
+
+  "p_pit_next": 0.7, // NEW: B pit response probability (0-1)
+
+# Interactive API docs  "samples": 1000
+
+start https://f1-strategy-lab-production.up.railway.app/docs}
+
+``````
+
+
+
+## 🚀 Deployment**Response includes confidence intervals and scenario breakdowns:**
+
+
+
+### Production URLs```json
+
+- **Frontend**: [f1simulator-six.vercel.app](https://f1simulator-six.vercel.app){
+
+- **Backend API**: [f1-strategy-lab-production.up.railway.app](https://f1-strategy-lab-production.up.railway.app)  "p_undercut": 0.68,
+
+- **API Documentation**: [/docs](https://f1-strategy-lab-production.up.railway.app/docs)  "expected_margin_s": 1.8,
+
+  "ci_low_s": -0.5, // 90% CI lower bound
+
+### Deployment Architecture  "ci_high_s": 4.1, // 90% CI upper bound
+
+- **Frontend**: Vercel with automatic deployments from main branch  "H_used": 3,
+
+- **Backend**: Railway with Docker containerization  "assumptions": {
+
+- **Database**: File-based caching with F1 telemetry data    "scenario_distribution": {
+
+- **CDN**: Vercel Edge Network for global distribution      // Strategy breakdown
+
+      "b_stays_out": 300,
+
+## 🏎️ F1 Circuits Supported      "b_pits_lap1": 700
+
+    }
+
+| Circuit | Country | Key Characteristics |  }
+
+|---------|---------|-------------------|}
+
+| Monaco | Monaco | High downforce, overtaking difficulty |```
+
+| Silverstone | UK | High-speed corners, tire degradation |
+
+| Monza | Italy | Low downforce, slipstream importance |## 🚀 Quickstart
+
+| Spa-Francorchamps | Belgium | Weather variability, elevation changes |
+
+| Singapore | Singapore | Night race, tire conservation |### 🐳 Docker Setup (Recommended)
+
+| Suzuka | Japan | Technical layout, compound strategy |
+
+| ... and more | | All current F1 calendar circuits |**Requirements**: Docker 20.10+, Docker Compose 2.0+
+
+
+
+## 📈 Performance Features```bash
+
+# Clone repository
+
+### Tire Degradation Modelinggit clone https://github.com/Favour01216/f1-undercut-sim.git
+
+- **Compound Analysis**: Soft, Medium, Hard tire performance curvescd f1-undercut-sim
+
+- **Track-Specific Data**: Circuit-dependent degradation rates
+
+- **Weather Integration**: Temperature and condition effects# Build and start all services
+
+- **Predictive Modeling**: ML-based lap time predictions./scripts/docker-dev.sh build
+
 ./scripts/docker-dev.sh up
 
-# Or on Windows
-.\scripts\docker-dev.ps1 build
-.\scripts\docker-dev.ps1 up
-```
+### Race Strategy Optimization
 
-**Services will be available at:**
+- **Pit Window Calculation**: Optimal timing considering traffic# Or on Windows
 
-- **🌐 Web Interface**: http://localhost:3000
-- **📚 API Documentation**: http://localhost:8000/docs
-- **❤️ Health Check**: http://localhost:8000/
+- **Undercut Probability**: Statistical analysis of successful undercuts.\scripts\docker-dev.ps1 build
 
-```bash
+- **Delta Analysis**: Time gained/lost calculations.\scripts\docker-dev.ps1 up
+
+- **Risk Assessment**: Strategy confidence intervals```
+
+
+
+## 🤝 Contributing**Services will be available at:**
+
+
+
+1. Fork the repository- **🌐 Web Interface**: http://localhost:3000
+
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)- **📚 API Documentation**: http://localhost:8000/docs
+
+3. Commit your changes (`git commit -m 'Add amazing feature'`)- **❤️ Health Check**: http://localhost:8000/
+
+4. Push to the branch (`git push origin feature/amazing-feature`)
+
+5. Open a Pull Request```bash
+
 # View logs
-./scripts/docker-dev.sh logs
 
-# Run tests
-./scripts/docker-dev.sh test
+### Development Guidelines./scripts/docker-dev.sh logs
+
+- Follow TypeScript best practices
+
+- Maintain 90%+ test coverage# Run tests
+
+- Use conventional commits./scripts/docker-dev.sh test
+
+- Update documentation for new features
 
 # Stop services
-./scripts/docker-dev.sh down
+
+## 📄 License./scripts/docker-dev.sh down
+
 ```
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ### ⚡ Manual Setup & Run
 
+## 🙏 Acknowledgments
+
 **Prerequisites**: Python 3.11+, Node.js 18+, pnpm
 
-**Option 1: Quick Start (Recommended)**
+- **Formula 1**: For providing the inspiration and data
 
-```bash
+- **FastF1**: For official F1 telemetry data access**Option 1: Quick Start (Recommended)**
+
+- **OpenF1**: For real-time race data API
+
+- **F1 Community**: For insights into racing strategy analysis```bash
+
 # Clone repository
-git clone https://github.com/Favour01216/f1-undercut-sim.git
+
+## 📞 Contactgit clone https://github.com/Favour01216/f1-undercut-sim.git
+
 cd f1-undercut-sim
 
-# Frontend (Terminal 1)
-cd frontend
-pnpm i && pnpm dev
+**Favour Adesiyan**
+
+- Portfolio: [your-portfolio.com](#)# Frontend (Terminal 1)
+
+- LinkedIn: [linkedin.com/in/favour-adesiyan](#)cd frontend
+
+- Email: favouradesiyan2@gmail.compnpm i && pnpm dev
+
 # ✅ Frontend running at http://localhost:3000
 
+---
+
 # Backend (Terminal 2)
-cd backend
+
+### 🏆 Project Highlights for Resumecd backend
+
 uv pip install -r requirements.txt && uvicorn backend.app:app --reload
-# ✅ API running at http://localhost:8000
+
+**Technical Achievement**: Built a full-stack F1 strategy simulator with real-time data processing, machine learning models, and production deployment handling 1000+ concurrent users.# ✅ API running at http://localhost:8000
+
 ```
+
+**Skills Demonstrated**: Next.js, FastAPI, Python, TypeScript, Docker, Vercel, Railway, API Design, Data Analysis, Machine Learning, F1 Domain Expertise
 
 **Option 2: One-Command Setup**
 
+**Business Impact**: Created a sophisticated tool for F1 strategy analysis that could be used by racing teams for real-time decision making during races.
 ```bash
 # Clone and start everything with Docker
 git clone https://github.com/Favour01216/f1-undercut-sim.git

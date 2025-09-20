@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SimulationResults } from "@/components/simulation-results";
+import { SimulationResults } from "./simulation-results";
 import { useSimulateMutation } from "@/lib/hooks";
 import {
   type SimulationRequest,
