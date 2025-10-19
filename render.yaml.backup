@@ -3,7 +3,9 @@ services:
     name: f1-strategy-lab
     env: python
     plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements-render.txt
+    buildCommand: |
+      pip install --upgrade pip wheel setuptools
+      pip install -r requirements-render.txt
     startCommand: uvicorn standalone_app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -16,4 +18,8 @@ services:
         value: false
       - key: CORS_ORIGINS
         value: https://f1simulator-six.vercel.app,https://f1simulator-macqgkwov-favour01216s-projects.vercel.app
+      - key: PYTHONPATH
+        value: /opt/render/project/src/backend
+      - key: PIP_NO_CACHE_DIR
+        value: "1"
     healthCheckPath: /health
