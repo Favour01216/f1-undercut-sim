@@ -1,0 +1,30 @@
+# Ignore backend directory to avoid conflicts
+backend/app.py
+backend/model_cache.py
+backend/models/
+backend/services/
+backend/features/
+backend/tests/
+backend/__pycache__/
+backend/logs/
+
+# Ignore other directories that might cause issues
+features/
+notebooks/
+memory-bank/
+docs/
+frontend/
+components/
+app/
+
+# Ignore config files that might import problematic modules
+backend/config.py
+backend/logging_config.py
+backend/performance.py
+backend/requirements.txt
+backend/pyproject.toml
+
+# Only keep essential files
+!standalone_app.py
+!requirements-render.txt
+!render.yaml
