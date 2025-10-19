@@ -26,15 +26,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request/Response models
+# Request/Response models  
 class SimulationRequest(BaseModel):
-    circuit: str
+    # Accept both formats for backwards compatibility
+    circuit: str = None
+    gp: str = None  # Alternative field name from frontend
     driver_a: str
     driver_b: str
     compound_a: str
-    compound_b: str
-    current_lap: int
+    compound_b: str = "MEDIUM"  # Default value if missing
+    current_lap: int = None
+    lap_now: int = None  # Alternative field name from frontend
     session: str = "race"
+    year: int = 2024  # Optional frontend field
+    samples: int = 1000  # Optional frontend field
+    H: int = 2  # Optional frontend field
+    p_pit_next: float = 1.0  # Optional frontend field
 
 class SimulationResponse(BaseModel):
     undercut_probability: float
@@ -87,17 +94,21 @@ async def simulate_undercut_get(
 @app.post("/simulate", response_model=SimulationResponse)
 async def simulate_undercut_post(request: SimulationRequest):
     """POST endpoint for API clients"""
-    # Mock calculation
-    mock_probability = 0.65
-    mock_delta = 1.2
-    mock_optimal_lap = request.current_lap + 3
+    # Handle field name conversion
+    circuit = request.circuit or request.gp or "unknown"
+    current_lap = request.current_lap or request.lap_now or 20
+    
+    # Mock calculation based on inputs
+    mock_probability = 0.75 if circuit.lower() == "monza" else 0.65
+    mock_delta = 1.8 if request.driver_a == "VER" else 1.2
+    mock_optimal_lap = current_lap + 3
     
     return SimulationResponse(
         undercut_probability=mock_probability,
         time_delta=mock_delta,
         optimal_pit_lap=mock_optimal_lap,
-        strategy_recommendation=f"Consider undercut on lap {mock_optimal_lap}",
-        confidence=0.8
+        strategy_recommendation=f"Undercut {request.driver_a} vs {request.driver_b} at {circuit} on lap {mock_optimal_lap}",
+        confidence=0.85
     )
 
 if __name__ == "__main__":
