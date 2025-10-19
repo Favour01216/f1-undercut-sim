@@ -15,5 +15,5 @@ services:
       - key: OFFLINE
         value: false
       - key: CORS_ORIGINS
-        value: https://f1simulator-six.vercel.app,https://f1simulator-macqgkwov-favour01216s-projects.vercel.app
+        value: "*"
     healthCheckPath: /health
