@@ -1,3 +1,16 @@
+# Temporarily exclude problematic directories for Render deployment
+backend_backup/
+app/
+components/
+frontend/
+features/
+notebooks/
+scripts/
+docker/
+lib/
+.next/
+node_modules/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -4,6 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: |
+      rm -rf backend_backup app components frontend features notebooks scripts docker lib .next node_modules
       pip install --upgrade pip wheel setuptools
       pip install -r requirements-render.txt
     startCommand: uvicorn standalone_app:app --host 0.0.0.0 --port $PORT
