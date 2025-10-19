@@ -1,6 +1,8 @@
-# Ultra minimal requirements for Render deployment# Python dependencies for F1 Undercut Simulator Backend
+fastapi==0.104.1# Ultra minimal requirements for Render deployment# Python dependencies for F1 Undercut Simulator Backend
 
-fastapi==0.104.1# Core dependencies
+uvicorn==0.24.0
+
+pydantic==2.5.3fastapi==0.104.1# Core dependencies
 
 uvicorn==0.24.0numpy>=1.24.0,<2.1.0
 
