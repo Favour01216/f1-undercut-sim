@@ -28,20 +28,20 @@ app.add_middleware(
 
 # Request/Response models  
 class SimulationRequest(BaseModel):
-    # Accept both formats for backwards compatibility
-    circuit: str = None
-    gp: str = None  # Alternative field name from frontend
+    # Frontend sends these field names
+    gp: str  # Circuit name from frontend
     driver_a: str
     driver_b: str
     compound_a: str
-    compound_b: str = "MEDIUM"  # Default value if missing
-    current_lap: int = None
-    lap_now: int = None  # Alternative field name from frontend
+    lap_now: int  # Current lap from frontend
+    
+    # Optional fields that frontend might send
+    year: int = 2024
+    samples: int = 1000
+    H: int = 2
+    p_pit_next: float = 1.0
+    compound_b: str = "MEDIUM"  # Default if not provided
     session: str = "race"
-    year: int = 2024  # Optional frontend field
-    samples: int = 1000  # Optional frontend field
-    H: int = 2  # Optional frontend field
-    p_pit_next: float = 1.0  # Optional frontend field
 
 class SimulationResponse(BaseModel):
     undercut_probability: float
@@ -94,9 +94,9 @@ async def simulate_undercut_get(
 @app.post("/simulate", response_model=SimulationResponse)
 async def simulate_undercut_post(request: SimulationRequest):
     """POST endpoint for API clients"""
-    # Handle field name conversion
-    circuit = request.circuit or request.gp or "unknown"
-    current_lap = request.current_lap or request.lap_now or 20
+    # Use the frontend field names directly
+    circuit = request.gp
+    current_lap = request.lap_now
     
     # Mock calculation based on inputs
     mock_probability = 0.75 if circuit.lower() == "monza" else 0.65
