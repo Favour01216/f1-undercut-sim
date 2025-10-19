@@ -1,7 +1,7 @@
 # Python dependencies for F1 Undercut Simulator Backend
 # Core dependencies
-numpy>=1.24.0,<2.0.0
-pandas>=2.0.0,<3.0.0
+numpy>=1.24.0,<2.1.0
+pandas>=2.0.0,<2.2.0
 scipy>=1.10.0,<2.0.0
 matplotlib>=3.7.0,<4.0.0
 seaborn>=0.12.0,<1.0.0
@@ -16,7 +16,7 @@ httpx>=0.24.0,<1.0.0
 requests>=2.31.0,<3.0.0
 
 # Data processing and storage
-pyarrow>=14.0.0,<18.0.0
+pyarrow>=12.0.0,<16.0.0
 
 # Logging and monitoring
 structlog>=23.0.0,<24.0.0

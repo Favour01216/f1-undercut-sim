@@ -3,7 +3,7 @@
 A sophisticated full-stack web application for Formula 1 race strategy analysis, featuring real-time undercut probability calculations, tire degradation modeling, and pit stop optimization.
 
 [![Live Demo](https://img.shields.io/badge/_Live_Demo-f1simulator--six.vercel.app-blue?style=for-the-badge)](https://f1simulator-six.vercel.app)
-[![API Docs](https://img.shields.io/badge/_API_Docs-FastAPI-green?style=for-the-badge)](https://f1-strategy-lab-production.up.railway.app/docs)
+[![API Docs](https://img.shields.io/badge/_API_Docs-FastAPI-green?style=for-the-badge)](https://f1-strategy-lab.onrender.com/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
@@ -62,9 +62,15 @@ _Side-by-side driver performance analysis with tire degradation insights_
 
 ```
 
-   Frontend              Backend            External APIs
-   (Next.js)        (FastAPI)         OpenF1
-   Vercel               Railway               FastF1
+```
+
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Frontend │ │ Backend │ │ External APIs │
+│ (Next.js) │◄──►│ (FastAPI) │◄──►│ OpenF1 │
+│ Vercel │ │ Render │ │ FastF1 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+
+```
 
 ```
 
@@ -84,7 +90,7 @@ _Side-by-side driver performance analysis with tire degradation insights_
 - **Data Processing**: Pandas, NumPy for race analysis
 - **ML Models**: Scikit-learn for predictive modeling
 - **Caching**: Smart data caching with FastF1 integration
-- **Deployment**: Railway with Docker containerization
+- **Deployment**: Render with automatic deployments
 
 #### Data Sources
 
@@ -211,10 +217,10 @@ npm run test:e2e
 
 ```bash
 # Test health endpoint
-curl https://f1-strategy-lab-production.up.railway.app/health
+curl https://f1-strategy-lab.onrender.com/health
 
 # Interactive API docs
-start https://f1-strategy-lab-production.up.railway.app/docs
+start https://f1-strategy-lab.onrender.com/docs
 ```
 
 ## Deployment
@@ -222,13 +228,13 @@ start https://f1-strategy-lab-production.up.railway.app/docs
 ### Production URLs
 
 - **Frontend**: [f1simulator-six.vercel.app](https://f1simulator-six.vercel.app)
-- **Backend API**: [f1-strategy-lab-production.up.railway.app](https://f1-strategy-lab-production.up.railway.app)
-- **API Documentation**: [/docs](https://f1-strategy-lab-production.up.railway.app/docs)
+- **Backend API**: [f1-strategy-lab.onrender.com](https://f1-strategy-lab.onrender.com)
+- **API Documentation**: [/docs](https://f1-strategy-lab.onrender.com/docs)
 
 ### Deployment Architecture
 
 - **Frontend**: Vercel with automatic deployments from main branch
-- **Backend**: Railway with Docker containerization
+- **Backend**: Render with automatic deployments from main branch
 - **Database**: File-based caching with F1 telemetry data
 - **CDN**: Vercel Edge Network for global distribution
 
