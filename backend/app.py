@@ -5,9 +5,10 @@ import os
 import time
 from typing import Dict, Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import json
 
 # Create FastAPI app
 app = FastAPI(
@@ -78,6 +79,17 @@ async def get_circuits():
     ]
     return {"circuits": circuits}
 
+@app.post("/debug")
+async def debug_request(request: Request):
+    """Debug endpoint to see what data is being sent"""
+    try:
+        body = await request.json()
+        print(f"DEBUG - Received data: {json.dumps(body, indent=2)}")
+        return {"received": body, "status": "debug_ok"}
+    except Exception as e:
+        print(f"DEBUG - Error parsing request: {e}")
+        return {"error": str(e), "status": "debug_error"}
+
 @app.get("/simulate")
 async def simulate_undercut_get(
     strategy1: str = "one_stop",
@@ -99,27 +111,43 @@ async def simulate_undercut_get(
         "strategies": {"strategy1": strategy1, "strategy2": strategy2}
     }
 
-@app.post("/simulate", response_model=SimulationResponse)
-async def simulate_undercut_post(request: SimulationRequest):
-    """POST endpoint for API clients"""
-    # Extract data with fallbacks
-    circuit = request.gp or request.circuit or "monza"
-    current_lap = request.lap_now or request.current_lap or 25
-    driver_a = request.driver_a or "VER"
-    driver_b = request.driver_b or "LEC"
-    
-    # Mock calculation based on inputs
-    mock_probability = 0.75 if circuit.lower() == "monza" else 0.65
-    mock_delta = 1.8 if driver_a == "VER" else 1.2
-    mock_optimal_lap = current_lap + 3
-    
-    return SimulationResponse(
-        undercut_probability=mock_probability,
-        time_delta=mock_delta,
-        optimal_pit_lap=mock_optimal_lap,
-        strategy_recommendation=f"Undercut {driver_a} vs {driver_b} at {circuit} on lap {mock_optimal_lap}",
-        confidence=0.85
-    )
+@app.post("/simulate")
+async def simulate_undercut_post(request: Request):
+    """POST endpoint for API clients - accepts any JSON"""
+    try:
+        # Get raw JSON data
+        data = await request.json()
+        print(f"SIMULATE - Received data: {json.dumps(data, indent=2)}")
+        
+        # Extract data with multiple fallback options
+        circuit = data.get("gp") or data.get("circuit") or "monza"
+        current_lap = data.get("lap_now") or data.get("current_lap") or 25
+        driver_a = data.get("driver_a") or "VER"
+        driver_b = data.get("driver_b") or "LEC"
+        
+        # Mock calculation
+        mock_probability = 0.75 if circuit.lower() == "monza" else 0.65
+        mock_delta = 1.8 if driver_a == "VER" else 1.2
+        mock_optimal_lap = current_lap + 3
+        
+        return {
+            "undercut_probability": mock_probability,
+            "time_delta": mock_delta,
+            "optimal_pit_lap": mock_optimal_lap,
+            "strategy_recommendation": f"Undercut {driver_a} vs {driver_b} at {circuit} on lap {mock_optimal_lap}",
+            "confidence": 0.85
+        }
+        
+    except Exception as e:
+        print(f"SIMULATE - Error: {e}")
+        return {
+            "error": str(e),
+            "undercut_probability": 0.65,
+            "time_delta": 1.5,
+            "optimal_pit_lap": 25,
+            "strategy_recommendation": "Default simulation result",
+            "confidence": 0.5
+        }
 
 if __name__ == "__main__":
     import uvicorn
