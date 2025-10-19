@@ -26,22 +26,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request/Response models  
+# Request/Response models - Accept any data structure
+from typing import Optional, Any
+
 class SimulationRequest(BaseModel):
-    # Frontend sends these field names
-    gp: str  # Circuit name from frontend
-    driver_a: str
-    driver_b: str
-    compound_a: str
-    lap_now: int  # Current lap from frontend
+    # Make everything optional to handle any frontend format
+    gp: Optional[str] = None
+    circuit: Optional[str] = None
+    driver_a: Optional[str] = "VER"
+    driver_b: Optional[str] = "LEC"
+    compound_a: Optional[str] = "SOFT"
+    compound_b: Optional[str] = "MEDIUM"
+    lap_now: Optional[int] = None
+    current_lap: Optional[int] = None
     
-    # Optional fields that frontend might send
-    year: int = 2024
-    samples: int = 1000
-    H: int = 2
-    p_pit_next: float = 1.0
-    compound_b: str = "MEDIUM"  # Default if not provided
-    session: str = "race"
+    # Accept any other fields frontend might send
+    year: Optional[int] = 2024
+    samples: Optional[int] = 1000
+    H: Optional[int] = 2
+    p_pit_next: Optional[float] = 1.0
+    session: Optional[str] = "race"
+    
+    # Accept any additional fields
+    class Config:
+        extra = "allow"
 
 class SimulationResponse(BaseModel):
     undercut_probability: float
@@ -94,20 +102,22 @@ async def simulate_undercut_get(
 @app.post("/simulate", response_model=SimulationResponse)
 async def simulate_undercut_post(request: SimulationRequest):
     """POST endpoint for API clients"""
-    # Use the frontend field names directly
-    circuit = request.gp
-    current_lap = request.lap_now
+    # Extract data with fallbacks
+    circuit = request.gp or request.circuit or "monza"
+    current_lap = request.lap_now or request.current_lap or 25
+    driver_a = request.driver_a or "VER"
+    driver_b = request.driver_b or "LEC"
     
     # Mock calculation based on inputs
     mock_probability = 0.75 if circuit.lower() == "monza" else 0.65
-    mock_delta = 1.8 if request.driver_a == "VER" else 1.2
+    mock_delta = 1.8 if driver_a == "VER" else 1.2
     mock_optimal_lap = current_lap + 3
     
     return SimulationResponse(
         undercut_probability=mock_probability,
         time_delta=mock_delta,
         optimal_pit_lap=mock_optimal_lap,
-        strategy_recommendation=f"Undercut {request.driver_a} vs {request.driver_b} at {circuit} on lap {mock_optimal_lap}",
+        strategy_recommendation=f"Undercut {driver_a} vs {driver_b} at {circuit} on lap {mock_optimal_lap}",
         confidence=0.85
     )
 
