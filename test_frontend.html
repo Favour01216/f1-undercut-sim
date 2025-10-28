@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 Simulator Test</title>
+    <script src="https://unpkg.com/zod@3.22.4/lib/index.umd.js"></script>
+  </head>
+  <body>
+    <h1>F1 Simulator Frontend Test</h1>
+    <button onclick="testSimulation()">Test Simulation</button>
+    <div id="result"></div>
+
+    <script>
+      // Same schema as frontend
+      const { z } = Zod;
+
+      const GP_CHOICES = [
+        "bahrain",
+        "imola",
+        "monza",
+        "monaco",
+        "spain",
+        "canada",
+        "austria",
+        "silverstone",
+        "hungary",
+        "belgium",
+        "netherlands",
+        "italy",
+        "singapore",
+        "japan",
+        "qatar",
+        "usa",
+        "mexico",
+        "brazil",
+        "abu_dhabi",
+        "australia",
+        "china",
+        "azerbaijan",
+        "miami",
+        "france",
+        "portugal",
+        "russia",
+        "turkey",
+        "saudi_arabia",
+        "las_vegas",
+      ];
+
+      const COMPOUND_CHOICES = ["SOFT", "MEDIUM", "HARD"];
+
+      const SimulationRequestSchema = z.object({
+        gp: z.enum(GP_CHOICES),
+        year: z.number().int().min(2020).max(2024),
+        driver_a: z.string().min(1).max(50),
+        driver_b: z.string().min(1).max(50),
+        compound_a: z.enum(COMPOUND_CHOICES),
+        lap_now: z.number().int().min(1).max(100),
+        samples: z.number().int().min(1).max(10000),
+        H: z.number().int().min(1).max(5),
+        p_pit_next: z.number().min(0).max(1),
+      });
+
+      async function testSimulation() {
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = "<p>🏎️ Testing simulation...</p>";
+
+        const testData = {
+          gp: "monza",
+          year: 2024,
+          driver_a: "VER",
+          driver_b: "LEC",
+          compound_a: "SOFT",
+          lap_now: 25,
+          samples: 1000,
+          H: 2,
+          p_pit_next: 1.0,
+        };
+
+        try {
+          // Step 1: Validate with Zod (same as frontend)
+          console.log("🧪 Validating request data...");
+          const validatedRequest = SimulationRequestSchema.parse(testData);
+          console.log("✅ Zod validation passed");
+
+          // Step 2: Send request (same as frontend)
+          console.log("📡 Sending request to backend...");
+          const response = await fetch(
+            "https://f1-strategy-lab.onrender.com/simulate",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(validatedRequest),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Simulation failed: ${errorText}`);
+          }
+
+          const data = await response.json();
+          console.log("✅ Backend response:", data);
+
+          resultDiv.innerHTML = `
+                    <h3>✅ Success!</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+        } catch (error) {
+          console.error("❌ Error:", error);
+
+          if (error.errors) {
+            // Zod validation error
+            resultDiv.innerHTML = `
+                        <h3>❌ Zod Validation Error</h3>
+                        <pre>${JSON.stringify(error.errors, null, 2)}</pre>
+                    `;
+          } else {
+            // Other error
+            resultDiv.innerHTML = `
+                        <h3>❌ Error</h3>
+                        <p>${error.message}</p>
+                    `;
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
