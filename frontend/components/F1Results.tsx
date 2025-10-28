@@ -21,21 +21,21 @@ export function F1Results({ result }: F1ResultsProps) {
     if (prob >= 0.7)
       return {
         level: "VICTORY",
-        flag: "≡ƒÅü",
+        flag: "🏁",
         class: "success",
         message: "Excellent undercut opportunity! High probability of success.",
       };
     if (prob >= 0.4)
       return {
         level: "CAUTION",
-        flag: "≡ƒƒí",
+        flag: "⚠️",
         class: "warning",
         message:
           "Risky but possible undercut. Consider track position and alternatives.",
       };
     return {
       level: "DANGER",
-      flag: "≡ƒö┤",
+      flag: "🔴",
       class: "danger",
       message: "Undercut likely to fail. Gap too small or pit loss too high.",
     };
@@ -48,7 +48,7 @@ export function F1Results({ result }: F1ResultsProps) {
       {/* Main Results Header */}
       <div className="pit-card p-6">
         <div className="racing-stripe">
-          <h2 className="f1-title text-2xl mb-2">≡ƒÄ» Simulation Results</h2>
+          <h2 className="f1-title text-2xl mb-2">📈 Simulation Results</h2>
           <p className="f1-body text-gray-300">
             Monte Carlo analysis with{" "}
             {result.assumptions.monte_carlo_samples.toLocaleString()} samples
