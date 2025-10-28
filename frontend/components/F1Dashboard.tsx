@@ -419,3 +419,4 @@ export default function F1Dashboard(): React.ReactElement {
     </div>
   );
 }
+

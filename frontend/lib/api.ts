@@ -65,14 +65,14 @@ const COMPOUND_CHOICES = ["SOFT", "MEDIUM", "HARD"] as const;
 // Request validation schema
 export const SimulationRequestSchema = z.object({
   gp: z.enum(GP_CHOICES),
-  year: z.number().int().min(2020).max(2024),
+  year: z.coerce.number().int().min(2020).max(2024),
   driver_a: z.string().min(1).max(50),
   driver_b: z.string().min(1).max(50),
   compound_a: z.enum(COMPOUND_CHOICES),
-  lap_now: z.number().int().min(1).max(100),
-  samples: z.number().int().min(1).max(10000).optional().default(1000),
-  H: z.number().int().min(1).max(5).optional().default(2),
-  p_pit_next: z.number().min(0).max(1).optional().default(1.0),
+  lap_now: z.coerce.number().int().min(1).max(100),
+  samples: z.coerce.number().int().min(1).max(10000).optional().default(1000),
+  H: z.coerce.number().int().min(1).max(5).optional().default(2),
+  p_pit_next: z.coerce.number().min(0).max(1).optional().default(1.0),
 });
 
 // Models fitted sub-schema
@@ -88,7 +88,7 @@ const AssumptionsSchema = z
     current_gap_s: z.number(),
     tire_age_driver_b: z.number(),
     models_fitted: ModelsFittedSchema,
-    monte_carlo_samples: z.number().int(),
+    monte_carlo_samples: z.coerce.number().int(),
     avg_degradation_penalty_s: z.number().optional(),
     pit_loss_range: z.tuple([z.number(), z.number()]).optional(),
     outlap_delta_range: z.tuple([z.number(), z.number()]).optional(),
@@ -545,3 +545,4 @@ export const handleApiError = (
     originalError: error,
   };
 };
+

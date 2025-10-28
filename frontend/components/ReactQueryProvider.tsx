@@ -42,3 +42,4 @@ export function ReactQueryProvider({ children }: ReactQueryProviderProps) {
     </QueryClientProvider>
   );
 }
+

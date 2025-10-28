@@ -287,3 +287,4 @@ export function F1Results({ result }: F1ResultsProps) {
     </div>
   );
 }
+

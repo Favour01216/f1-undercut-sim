@@ -104,3 +104,4 @@ export function SimulationChart({ data }: SimulationChartProps = {}) {
         </Card>
     )
 }
+

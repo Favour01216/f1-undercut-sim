@@ -18,3 +18,4 @@ export function ErrorLoggingProvider({
 
   return <>{children}</>;
 }
+
