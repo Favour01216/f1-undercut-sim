@@ -474,13 +474,19 @@ export class F1ApiClient {
   async simulate(request: SimulationRequest): Promise<SimulationResponse> {
     try {
       // DEBUG: Log raw request
-      console.log("🔍 Raw request before validation:", JSON.stringify(request, null, 2));
-      
+      console.log(
+        "🔍 Raw request before validation:",
+        JSON.stringify(request, null, 2)
+      );
+
       // Validate request
       const validatedRequest = SimulationRequestSchema.parse(request);
-      
+
       // DEBUG: Log validated request
-      console.log("✅ Validated request:", JSON.stringify(validatedRequest, null, 2));
+      console.log(
+        "✅ Validated request:",
+        JSON.stringify(validatedRequest, null, 2)
+      );
 
       const response = await fetch(`${this.baseUrl}/simulate`, {
         method: "POST",
