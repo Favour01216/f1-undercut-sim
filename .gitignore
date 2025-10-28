@@ -6,7 +6,7 @@ features/
 notebooks/
 scripts/
 docker/
-lib/
+/lib/
 .next/
 node_modules/
 

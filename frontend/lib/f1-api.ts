@@ -1,6 +1,6 @@
 /**
- * F1 Undercut Simulator - API Client v2.0
- * Clean, racing-themed API client that exactly matches backend schemas
+ * F1 Undercut Simulator - API Client v2.1
+ * Clean, racing-themed API client with Zod coercion for form compatibility
  */
 
 import { z } from "zod";
