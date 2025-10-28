@@ -473,8 +473,14 @@ export class F1ApiClient {
    */
   async simulate(request: SimulationRequest): Promise<SimulationResponse> {
     try {
+      // DEBUG: Log raw request
+      console.log("🔍 Raw request before validation:", JSON.stringify(request, null, 2));
+      
       // Validate request
       const validatedRequest = SimulationRequestSchema.parse(request);
+      
+      // DEBUG: Log validated request
+      console.log("✅ Validated request:", JSON.stringify(validatedRequest, null, 2));
 
       const response = await fetch(`${this.baseUrl}/simulate`, {
         method: "POST",
@@ -498,6 +504,9 @@ export class F1ApiClient {
       return SimulationResponseSchema.parse(data);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        // DEBUG: Log detailed validation errors
+        console.error("❌ Zod validation failed:", error.errors);
+        console.error("❌ Failed request data:", request);
         throw new F1ApiError("Invalid request data", 400, error.errors);
       }
       throw error;
