@@ -1,7 +1,7 @@
 # Temporarily exclude problematic directories for Render deployment
 backend_backup/
 app/
-components/
+# components/ - COMMENTED to allow frontend/components
 features/
 notebooks/
 scripts/
@@ -9,6 +9,9 @@ docker/
 /lib/
 .next/
 node_modules/
+
+# Explicitly allow frontend components
+!frontend/components/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
