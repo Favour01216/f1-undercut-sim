@@ -26,13 +26,16 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ - COMMENTED OUT to allow frontend/lib/
 lib64/
 parts/
 sdist/
 var/
 wheels/
 share/python-wheels/
+
+# Explicitly allow frontend/lib/
+!frontend/lib/
 *.egg-info/
 .installed.cfg
 *.egg
