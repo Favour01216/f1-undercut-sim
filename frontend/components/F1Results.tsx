@@ -68,7 +68,7 @@ export function F1Results({ result }: F1ResultsProps) {
 
         {/* Pit Loss */}
         <div className="result-metric bg-gradient-to-br from-gray-800 to-gray-900 text-white">
-          <div className="text-4xl mb-2">ΓÅ▒∩╕Å</div>
+          <div className="text-4xl mb-2">⏱️</div>
           <p className="result-value">{result.pitLoss_s.toFixed(2)}s</p>
           <p className="result-label">Pit Stop Loss</p>
           <div className="text-xs mt-2 text-gray-300">
@@ -78,7 +78,7 @@ export function F1Results({ result }: F1ResultsProps) {
 
         {/* Outlap Penalty */}
         <div className="result-metric bg-gradient-to-br from-orange-600 to-red-600 text-white">
-          <div className="text-4xl mb-2">≡ƒöÑ</div>
+          <div className="text-4xl mb-2">🔥</div>
           <p className="result-value">{result.outLapDelta_s.toFixed(2)}s</p>
           <p className="result-label">Outlap Penalty</p>
           <div className="text-xs mt-2">Fresh tire warm-up loss</div>
@@ -89,7 +89,7 @@ export function F1Results({ result }: F1ResultsProps) {
       {result.expected_margin_s && (
         <div className="pit-card p-6">
           <h3 className="f1-subtitle text-lg mb-4 text-white">
-            ≡ƒôè Expected Time Margins
+            📊 Expected Time Margins
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
@@ -134,7 +134,7 @@ export function F1Results({ result }: F1ResultsProps) {
       {/* Race Situation Analysis */}
       <div className="pit-card p-6">
         <h3 className="f1-subtitle text-lg mb-4 text-white">
-          ≡ƒÅü Race Situation
+          🏁 Race Situation
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
@@ -174,7 +174,7 @@ export function F1Results({ result }: F1ResultsProps) {
 
       {/* Models Status */}
       <div className="pit-card p-6">
-        <h3 className="f1-subtitle text-lg mb-4 text-white">≡ƒöº Model Status</h3>
+        <h3 className="f1-subtitle text-lg mb-4 text-white">🔧 Model Status</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
             <div
@@ -233,7 +233,7 @@ export function F1Results({ result }: F1ResultsProps) {
       {/* Strategic Interpretation */}
       <div className="pit-card p-6">
         <h3 className="f1-subtitle text-lg mb-4 text-white">
-          ≡ƒºá Strategic Analysis
+          💡 Strategic Analysis
         </h3>
         <div
           className={`p-4 rounded-lg border-l-4 ${
@@ -276,7 +276,7 @@ export function F1Results({ result }: F1ResultsProps) {
 
         <div className="mt-4 p-3 bg-gray-900 rounded-lg border border-gray-700">
           <p className="f1-body text-xs text-gray-400">
-            <strong>ΓÜá∩╕Å Disclaimer:</strong> This simulation uses Monte Carlo
+            <strong>ℹ️ Disclaimer:</strong> This simulation uses Monte Carlo
             methods with tire degradation, pit stop time, and outlap performance
             models. Results are probabilistic estimates based on historical data
             and current race conditions. Real F1 strategy involves many more
@@ -287,4 +287,3 @@ export function F1Results({ result }: F1ResultsProps) {
     </div>
   );
 }
-
