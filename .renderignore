@@ -1,27 +1,32 @@
 # Ignore frontend
+
 frontend/
 components/
 app/
 
 # Ignore notebooks and docs
+
 notebooks/
 memory-bank/
 docs/
 
 # Ignore cache and build artifacts
-**/__pycache__/
-*.pyc
+
+\*_/**pycache**/
+_.pyc
 .pytest_cache/
 .next/
 node_modules/
 
 # Ignore test files
-test_*.js
-test_*.html
+
+test*\*.js
+test*\*.html
 integration_test.js
 
 # Ignore backup and unnecessary files
-*.backup
+
+\*.backup
 backend_backup/
 
 integration_test.js
