@@ -2,7 +2,6 @@
 backend_backup/
 app/
 components/
-frontend/
 features/
 notebooks/
 scripts/
