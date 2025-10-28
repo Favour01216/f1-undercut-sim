@@ -7,6 +7,11 @@ const nextConfig = {
     instrumentationHook: true,
   },
 
+  // Force fresh builds - disable all caching
+  generateBuildId: async () => {
+    return `build-${Date.now()}`;
+  },
+
   // Enable standalone output for Docker
   output: "standalone",
 
