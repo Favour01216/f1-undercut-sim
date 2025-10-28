@@ -24,6 +24,8 @@ app.add_middleware(
     allow_credentials=False,  # Can't use credentials with allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight for 1 hour
 )
 
 # Request/Response models - Accept any data structure
