@@ -58,44 +58,13 @@ export const SimulationRequestSchema = z.object({
   p_pit_next: z.coerce.number().min(0).max(1).default(1.0),
 });
 
-// Models fitted sub-schema
-const ModelsFittedSchema = z.object({
-  degradation_model: z.boolean(),
-  pit_model: z.boolean(),
-  outlap_model: z.boolean(),
-});
-
-// Scenario distribution sub-schema
-const ScenarioDistributionSchema = z.object({
-  b_stays_out: z.number(),
-  b_pits_lap1: z.number(),
-});
-
-// Assumptions schema (flexible to match backend)
-const AssumptionsSchema = z.object({
-  current_gap_s: z.number(),
-  tire_age_driver_b: z.number(),
-  H_laps_simulated: z.number(),
-  p_pit_next: z.number(),
-  compound_a: z.string(),
-  scenario_distribution: ScenarioDistributionSchema,
-  models_fitted: ModelsFittedSchema,
-  monte_carlo_samples: z.number(),
-  avg_degradation_penalty_s: z.number(),
-  success_margin_s: z.number(),
-});
-
-// Response validation schema (matches SimulateResponse exactly)
+// Response validation schema (matches actual backend response)
 export const SimulationResponseSchema = z.object({
-  p_undercut: z.number().min(0).max(1),
-  pitLoss_s: z.number(),
-  outLapDelta_s: z.number(),
-  avgMargin_s: z.number().optional(),
-  expected_margin_s: z.number().optional(),
-  ci_low_s: z.number().optional(),
-  ci_high_s: z.number().optional(),
-  H_used: z.number().int(),
-  assumptions: AssumptionsSchema,
+  undercut_probability: z.number().min(0).max(1),
+  time_delta: z.number(),
+  optimal_pit_lap: z.number().int(),
+  strategy_recommendation: z.string(),
+  confidence: z.number().min(0).max(1),
 });
 
 // ============================================================================
