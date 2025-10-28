@@ -1,30 +1,26 @@
-# Ignore backend directory to avoid conflicts
-backend/app.py
-backend/model_cache.py
-backend/models/
-backend/services/
-backend/features/
-backend/tests/
-backend/__pycache__/
-backend/logs/
+# Ignore Docker files to force Python runtime
+Dockerfile*
+docker-compose*
+.dockerignore
 
-# Ignore other directories that might cause issues
-features/
-notebooks/
-memory-bank/
-docs/
+# Ignore frontend
 frontend/
 components/
 app/
 
-# Ignore config files that might import problematic modules
-backend/config.py
-backend/logging_config.py
-backend/performance.py
-backend/requirements.txt
-backend/pyproject.toml
+# Ignore notebooks and docs
+notebooks/
+memory-bank/
+docs/
 
-# Only keep essential files
-!standalone_app.py
-!requirements-render.txt
-!render.yaml
+# Ignore cache and build artifacts
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.next/
+node_modules/
+
+# Ignore test files
+test_*.js
+test_*.html
+integration_test.js
