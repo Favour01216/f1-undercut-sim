@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { F1SimulationForm } from "./F1SimulationForm";
-import { F1Results } from "./F1Results";
 import { SimulationResponse } from "../lib/f1-api";
 import "../styles/f1-theme.css";
 
@@ -117,7 +116,75 @@ export default function F1Dashboard(): React.ReactElement {
                   NEW SIMULATION
                 </button>
               </div>
-              <F1Results result={state.results} />
+
+              {/* Simple Results Display */}
+              <div className="space-y-6">
+                <div className="pit-card p-6">
+                  <div className="racing-stripe">
+                    <h2 className="f1-title text-3xl mb-3">
+                      {state.results.undercut_probability >= 0.7
+                        ? "🏁 VICTORY"
+                        : state.results.undercut_probability >= 0.4
+                        ? "🟡 CAUTION"
+                        : "🔴 DANGER"}
+                    </h2>
+                    <p className="f1-subtitle mb-6">
+                      {state.results.strategy_recommendation}
+                    </p>
+
+                    <div className="flex justify-between items-center text-sm text-gray-400">
+                      <span>Confidence Level</span>
+                      <span>
+                        {(state.results.confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="f1-subtitle text-sm">
+                        UNDERCUT SUCCESS PROBABILITY
+                      </span>
+                      <span className="f1-number text-2xl text-green-400">
+                        {(state.results.undercut_probability * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          state.results.undercut_probability >= 0.7
+                            ? "bg-green-500"
+                            : state.results.undercut_probability >= 0.4
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }`}
+                        style={{
+                          width: `${(
+                            state.results.undercut_probability * 100
+                          ).toFixed(1)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="pit-card p-4">
+                    <div className="text-xs text-gray-400 mb-2">TIME DELTA</div>
+                    <p className="text-2xl font-bold">
+                      {state.results.time_delta.toFixed(2)}s
+                    </p>
+                  </div>
+                  <div className="pit-card p-4">
+                    <div className="text-xs text-gray-400 mb-2">
+                      OPTIMAL PIT LAP
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {state.results.optimal_pit_lap}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -419,4 +486,3 @@ export default function F1Dashboard(): React.ReactElement {
     </div>
   );
 }
-
