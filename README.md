@@ -237,6 +237,7 @@ start https://f1-strategy-lab.onrender.com/docs
 - **Backend**: Render with automatic deployments from main branch
 - **Database**: File-based caching with F1 telemetry data
 - **CDN**: Vercel Edge Network for global distribution
+- **Uptime ping**: GitHub Action keeps the Render backend warm by pinging `/health` every 15 minutes
 
 ## F1 Circuits Supported
 

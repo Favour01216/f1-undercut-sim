@@ -1,0 +1,15 @@
+name: Keep Render backend warm
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render health endpoint
+        run: |
+          echo "Pinging Render backend health endpoint..."
+          curl --max-time 15 -f -s -o /dev/null -w "Backend health responded %{http_code} in %{time_total}s\n" https://f1-strategy-lab.onrender.com/health
